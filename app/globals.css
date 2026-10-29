@@ -1,0 +1,64 @@
+/* globals.css —— 卡通趣味风格全局样式 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', sans-serif;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    margin: 0;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-3xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.12)] border border-white/80 p-6 transition-all duration-200 hover:shadow-[0_24px_48px_-16px_rgba(0,0,0,0.18)];
+  }
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-cartoon-orange text-white font-bold shadow-[0_10px_20px_-6px_rgba(255,178,107,0.45)] hover:bg-[#ffa54d] hover:shadow-[0_14px_28px_-8px_rgba(255,178,107,0.55)] transition-all duration-150 active:scale-95;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-2xl border border-cartoon-blue/30 bg-white text-cartoon-dark font-medium hover:bg-cartoon-yellow/40 hover:border-cartoon-blue transition-all duration-150 active:scale-95;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cartoon-blue/20 bg-white text-cartoon-dark text-xs font-medium hover:bg-cartoon-mint/50 hover:border-cartoon-mint transition-all duration-150 cursor-pointer;
+  }
+  .chip.active {
+    @apply bg-cartoon-blue border-cartoon-blue text-white shadow-[0_6px_12px_-4px_rgba(147,197,253,0.35)];
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-2xl border-2 border-cartoon-blue/20 bg-white text-cartoon-dark font-mono text-lg placeholder-cartoon-muted focus:outline-none focus:border-cartoon-orange focus:ring-1 focus:ring-cartoon-orange transition-all duration-150;
+  }
+
+  /* —— 练习页：手绘卡通风格基础组件 —— */
+  .ink-card {
+    @apply relative rounded-[30px] border-[3px] border-ink bg-white shadow-[7px_7px_0_0_#2B2B45];
+  }
+  .ink-btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-2xl border-[3px] border-ink px-5 py-3 text-sm font-extrabold text-ink shadow-[4px_4px_0_0_#2B2B45] transition-all duration-100 hover:-translate-y-0.5 hover:shadow-[5px_5px_0_0_#2B2B45] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[1px_1px_0_0_#2B2B45] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_0_#2B2B45];
+  }
+  .ink-btn-primary {
+    @apply bg-cartoon-orange text-white;
+  }
+  .ink-btn-yellow {
+    @apply bg-lemon text-ink;
+  }
+  .ink-btn-white {
+    @apply bg-white;
+  }
+  .ink-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border-2 border-ink px-3 py-1 text-xs font-extrabold;
+  }
+  .paper-dots {
+    background-image: radial-gradient(rgba(43, 43, 69, 0.13) 1.4px, transparent 1.4px);
+    background-size: 22px 22px;
+  }
+  .confetti-piece {
+    border-radius: 2px;
+  }
+}

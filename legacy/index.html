@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>英语默写练习 · Dictation Trainer</title>
+  <meta name="description" content="按等级和场景练习英语填空 / 整句默写，回车判分，错处高亮，可显示答案。">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <span class="logo">✍️</span>
+        <div>
+          <h1>英语默写练习</h1>
+          <p class="tagline">按<b>等级</b>和<b>场景</b>练填空 / 整句默写 · 回车判分 · 错处高亮 · 一键看答案</p>
+        </div>
+      </div>
+      <a class="header-link" href="README.md">语料来源 ↗</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ------------------------------ 设置区 ------------------------------ -->
+    <section class="panel controls" aria-label="练习设置">
+      <div class="control-row" id="datasetField" hidden>
+        <span class="label">语料库</span>
+        <select id="datasetSelect" class="select"></select>
+      </div>
+
+      <div class="control-row">
+        <span class="label">模式</span>
+        <div class="chips" id="modeChips"></div>
+      </div>
+
+      <div class="control-row">
+        <span class="label">等级</span>
+        <div class="chips" id="levelChips"></div>
+      </div>
+
+      <div class="control-row">
+        <span class="label">场景</span>
+        <div class="chips" id="catChips"></div>
+      </div>
+
+      <div class="control-row toggles">
+        <span class="label">选项</span>
+        <div class="switch-row">
+          <label class="switch"><input type="checkbox" id="optRequeue" checked><span>错题重练</span></label>
+          <label class="switch"><input type="checkbox" id="optAuto" checked><span>答对自动下一题</span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------ 练习区 ------------------------------ -->
+    <section class="panel stage" id="stage" aria-label="练习">
+      <div class="stage-top">
+        <span class="progress-text" id="progressText">第 1 / 1 题</span>
+        <div class="progress"><i id="progressBar"></i></div>
+        <span class="stats-text" id="statsText"></span>
+      </div>
+
+      <div class="meta" id="meta"></div>
+      <p class="zh-hint" id="zhHint" hidden></p>
+
+      <div class="sentence-wrap">
+        <div class="sentence" id="sentence" role="group" aria-label="题目"></div>
+        <textarea id="keyboardProxy" class="proxy" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="输入区" tabindex="-1"></textarea>
+      </div>
+
+      <p class="feedback" id="feedback" role="status" aria-live="polite"></p>
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="checkBtn">检查 <kbd>Enter</kbd></button>
+        <button type="button" class="btn" id="revealBtn">显示答案 <kbd>⌘/Ctrl</kbd>+<kbd>Enter</kbd></button>
+        <button type="button" class="btn ghost" id="resetBtn">重做本题</button>
+        <button type="button" class="btn ghost" id="nextBtn">下一题</button>
+      </div>
+
+      <div class="actions secondary">
+        <button type="button" class="btn ghost small" id="speakBtn">🔊 朗读整句</button>
+        <button type="button" class="btn ghost small" id="showZhBtn">中文提示</button>
+        <button type="button" class="btn ghost small" id="hintBtn">首字母提示 <kbd>⌘/Ctrl</kbd>+<kbd>H</kbd></button>
+      </div>
+
+      <div class="answer-box" id="answerBox" hidden></div>
+    </section>
+
+    <!-- ------------------------------ 结算区 ------------------------------ -->
+    <section class="panel summary" id="summary" hidden></section>
+
+    <section class="panel help">
+      <h2>怎么用</h2>
+      <ul class="tips">
+        <li>直接在键盘上打字就行，字母会落在对应的格子里；<b>空格 / Tab</b> 跳到下一个空。</li>
+        <li><b>Enter</b> 检查：全对给绿色，写错的字母标红，漏写的字母显示虚线框，多写的字母灰显。</li>
+        <li><b>⌘/Ctrl + Enter</b> 或点「显示答案」，下方给出正确句子 + 中文翻译。</li>
+        <li><b>Esc</b> 清空当前空（已判分时则重做本题）；<b>⌘/Ctrl + H</b> 显示首字母提示。</li>
+        <li>答错且勾选「错题重练」时，这道题会在本轮末尾再出现一次。</li>
+      </ul>
+      <p class="footnote">语料来源见 <a href="README.md">README</a>：内置精选语料 + 可选的 Tatoeba / CEFR-J 开源语料库。</p>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="data/sentences.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

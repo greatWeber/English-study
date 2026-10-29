@@ -23,26 +23,19 @@ export const MODES = [
   { id: 'dictation', label: '整句默写', desc: '整句逐词默写，更有挑战' },
 ];
 
-export type Sentence = {
-  id: string;
-  dataset_id: string;
-  level: string;
-  category: string;
-  text: string;
-  zh?: string | null;
-  blanks?: string | string[] | null;
-  source?: string | null;
-  total_attempts?: number;
-  correct_count?: number;
-  next_review_at?: string | null;
-};
-
-export type PracticeRecord = {
-  sentenceId: string;
-  datasetId: string;
-  mode: 'fill' | 'dictation';
-  correct: boolean;
-  mistakes: number;
-  timeSpent: number;
-  typedText: string;
-};
+export const FUNCTION_WORDS = new Set([
+  'a', 'an', 'the', 'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+  'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used',
+  'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'into', 'onto',
+  'as', 'and', 'or', 'but', 'nor', 'so', 'yet', 'if', 'unless', 'because',
+  'since', 'while', 'when', 'where', 'whether', 'that', 'which', 'who',
+  'whom', 'whose', 'what', 'how', 'why', 'there', 'here', 'then', 'than',
+  'not', 'no', 'never', 'ever', 'just', 'only', 'also', 'even', 'still',
+  'already', 'yet', 'again', 'ever', 'quite', 'rather', 'very', 'too',
+  'so', 'such', 'both', 'either', 'neither', 'each', 'every', 'all',
+  'some', 'any', 'many', 'much', 'few', 'little', 'more', 'most', 'less',
+  'least', 'own', 'same', 'other', 'another', 'such', 'my', 'your',
+  'his', 'her', 'its', 'our', 'their', 'me', 'you', 'him', 'she', 'he', 'it',
+  'we', 'they', 'us', 'them', 'i', 'this', 'these', 'those', 'it',
+]);

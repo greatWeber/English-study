@@ -6,14 +6,11 @@ import { ArrowRight, BookOpen, RefreshCw, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LEVELS, CATEGORIES, MODES } from '@/lib/constants';
 import { Mascot, BackgroundDecor, Confetti, KeyCap, StarDoodle } from '@/components/cartoon';
+import { OptionPill } from '@/components/optionPill';
+import { GlobeIcon } from '@/components/GlobeIcon';
+import { useHomePage } from '@/hooks/useHomePage';
 
-type Dataset = {
-  id: string;
-  name: string;
-  source: string;
-  description?: string;
-  sentence_count?: number;
-};
+
 
 /* 各等级选中时的配色，与练习页保持一致 */
 const LEVEL_ACTIVE: Record<string, string> = {
@@ -26,35 +23,22 @@ const LEVEL_ACTIVE: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const [datasets, setDatasets] = useState<Dataset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDataset, setSelectedDataset] = useState<string | null>(null);
-  const [level, setLevel] = useState<string>('all');
-  const [category, setCategory] = useState<string>('all');
-  const [mode, setMode] = useState<string>('fill');
-
-  useEffect(() => {
-    fetch('/api/datasets')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ok && data.datasets.length) {
-          setDatasets(data.datasets);
-          setSelectedDataset(data.datasets[0].id);
-        }
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const handleStart = () => {
-    if (!selectedDataset) return;
-    const url = new URL('/practice', window.location.origin);
-    url.searchParams.set('dataset', selectedDataset);
-    url.searchParams.set('level', level);
-    url.searchParams.set('category', category);
-    url.searchParams.set('mode', mode);
-    window.location.href = url.toString();
-  };
+  
+  const {
+    datasets,
+    loading,
+    selectedDataset,
+    level,
+    category,
+    mode,
+    setDatasets,
+    setLoading,
+    setSelectedDataset,
+    setLevel,
+    setCategory,
+    setMode,
+    handleStart
+  } = useHomePage();
 
   if (loading) {
     return (
@@ -200,7 +184,7 @@ export default function HomePage() {
                 <h2 className="text-sm font-extrabold">练习设置</h2>
               </div>
 
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 ">
                 {/* 等级 */}
                 <div>
                   <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
@@ -340,54 +324,5 @@ export default function HomePage() {
         </div>
       </main>
     </div>
-  );
-}
-
-/* ------------------------------------------------------------ 小组件 */
-
-function OptionPill({
-  active,
-  onClick,
-  activeClass = 'bg-lemon',
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  activeClass?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`inline-flex items-center gap-1.5 rounded-full border-[3px] border-ink px-3.5 py-1.5 text-xs font-extrabold transition-all duration-100 ${
-        active
-          ? `${activeClass} -translate-y-0.5 shadow-[3px_3px_0_0_#2B2B45]`
-          : 'bg-white shadow-[2px_2px_0_0_#2B2B45] hover:-translate-y-0.5 hover:bg-[#FFF6D6]'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function GlobeIcon({ size = 24, strokeWidth = 1 }: { size?: number; strokeWidth?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="lucide lucide-globe"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10" />
-    </svg>
   );
 }

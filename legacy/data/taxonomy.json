@@ -1,0 +1,20 @@
+{
+  "levels": [
+    { "id": "A1", "name": "A1 · 入门", "desc": "最基础的日常表达、短句" },
+    { "id": "A2", "name": "A2 · 初级", "desc": "常见场景的简单交流" },
+    { "id": "B1", "name": "B1 · 中级", "desc": "能描述经历与观点" },
+    { "id": "B2", "name": "B2 · 中高级", "desc": "抽象话题、地道搭配" },
+    { "id": "C1", "name": "C1 · 高级", "desc": "学术与职场进阶词汇" },
+    { "id": "C2", "name": "C2 · 精通", "desc": "低频词、修辞与书面语" }
+  ],
+  "categories": [
+    { "id": "daily", "name": "日常生活", "icon": "🏠" },
+    { "id": "travel", "name": "出行旅行", "icon": "✈️" },
+    { "id": "food", "name": "餐饮美食", "icon": "🍽️" },
+    { "id": "shopping", "name": "购物消费", "icon": "🛍️" },
+    { "id": "study", "name": "校园学习", "icon": "📚" },
+    { "id": "work", "name": "职场办公", "icon": "💼" },
+    { "id": "health", "name": "健康医疗", "icon": "🩺" },
+    { "id": "social", "name": "社交寒暄", "icon": "💬" }
+  ]
+}

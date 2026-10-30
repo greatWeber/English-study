@@ -34,12 +34,20 @@ export function BlankSlot({
   const isRevealed = phase === 'revealed';
   const isStatic = isChecked || isRevealed;
   const isCorrect = isChecked && !!detail?.correct;
+  const isAlternative = isCorrect && !!detail?.alternative;
   const isWrong = isChecked && !!detail && !detail.correct;
   const width = Math.max(answer.length, typed.length, 2) + 0.8;
 
   let lineColor = '#8ED3F4';
   let highlight = 'bg-[#FFF6D6]';
-  if (isRevealed || isCorrect) {
+  if (isRevealed) {
+    lineColor = '#22C55E';
+    highlight = 'bg-[#DCFCE7]';
+  } else if (isAlternative) {
+    // 近义/拼写替换：也对，但用天空蓝区分「逐字正确」
+    lineColor = '#0EA5E9';
+    highlight = 'bg-[#E0F2FE]';
+  } else if (isCorrect) {
     lineColor = '#22C55E';
     highlight = 'bg-[#DCFCE7]';
   } else if (isWrong) {
@@ -89,20 +97,24 @@ export function BlankSlot({
           <span
             className="relative z-10 flex h-full items-center justify-center px-1 font-extrabold leading-none"
             title={
-              isWrong && detail?.typed
-                ? `你写的是：${detail.typed}`
-                : undefined
+              isAlternative && detail?.typed
+                ? `接受了近义替换：${detail.typed}`
+                : isWrong && detail?.typed
+                  ? `你写的是：${detail.typed}`
+                  : undefined
             }
           >
             {marks.map((mark, index) => (
               <span
                 key={`${order}-mark-${index}`}
                 className={
-                  isCorrect || isRevealed
-                    ? 'text-green-700'
-                    : mark.ok
+                  isAlternative
+                    ? 'text-sky-700'
+                    : isCorrect || isRevealed
                       ? 'text-green-700'
-                      : 'text-red-500'
+                      : mark.ok
+                        ? 'text-green-700'
+                        : 'text-red-500'
                 }
               >
                 {mark.ch}
@@ -143,11 +155,15 @@ export function BlankSlot({
       {isStatic && (
         <span
           className={`absolute -right-2 -top-1 grid h-5 w-5 place-items-center rounded-full border-2 border-ink text-[10px] font-black text-white shadow-[1px_1px_0_0_#2B2B45] ${
-            isCorrect || isRevealed ? 'bg-green-400' : 'bg-red-400'
+            isAlternative
+              ? 'bg-sky-400'
+              : isCorrect || isRevealed
+                ? 'bg-green-400'
+                : 'bg-red-400'
           }`}
           aria-hidden
         >
-          {isCorrect || isRevealed ? '✓' : '✕'}
+          {isAlternative ? '≈' : isCorrect || isRevealed ? '✓' : '✕'}
         </span>
       )}
 

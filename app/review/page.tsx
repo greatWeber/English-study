@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Clock, Trash2, RefreshCw, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
-import type { Sentence } from '@/lib/constants';
+import type { Sentence } from '@/lib/type';
 
 type ReviewSentence = Sentence & {
   total_attempts: number;

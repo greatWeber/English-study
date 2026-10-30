@@ -33,6 +33,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const [toast, setToast] = useState<Toast | null>(null);
   const [activeBlank, setActiveBlank] = useState(0);
   const [celebrate, setCelebrate] = useState(0);
+  const [checking, setChecking] = useState(false);
 
   const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
   const dictationRef = useRef<HTMLTextAreaElement | null>(null);
@@ -205,8 +206,81 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     }, 60);
   }, [exercise, isDictation, focusBlank, focusDictation]);
 
-  const handleCheck = useCallback(() => {
-    if (!current || !exercise || phase !== 'typing') return;
+  /**
+   * 近义替换复核：把「不精确匹配」的空交给本地 NLI 判定（app/api/judge）。
+   * 判定通过的标记为「可接受替换」，让 bike / bicycle 这类答案也算对。
+   */
+  const refineWithSemantics = useCallback(
+    async (details: CheckDetail[], sentence: Sentence): Promise<CheckDetail[]> => {
+      // 跳过：已判对、没写、像拼错的、词形错的（这些都该算错，不必问模型）
+      const candidates = details.filter(
+        (detail) =>
+          !detail.correct &&
+          !detail.typo &&
+          !detail.formError &&
+          !detail.missing &&
+          detail.typed.trim().length > 0,
+      );
+      if (candidates.length === 0 || !sentence.text) return details;
+
+      try {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 20000);
+        const response = await fetch('/api/judge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sentenceId: sentence.id,
+            sentence: sentence.text,
+            items: candidates.map((detail) => ({
+              order: detail.order,
+              expected: detail.expected,
+              typed: detail.typed,
+            })),
+          }),
+          signal: controller.signal,
+        });
+        window.clearTimeout(timer);
+
+        const data = (await response.json()) as {
+          ok?: boolean;
+          results?: Array<{ order: number; accept: boolean }>;
+        };
+        if (!data.ok || !Array.isArray(data.results)) return details;
+
+        const accepted = new Set(
+          data.results.filter((result) => result.accept).map((result) => result.order),
+        );
+        if (accepted.size === 0) return details;
+
+        let found = 0;
+        const next = details.map((detail) => {
+          if (!accepted.has(detail.order) || detail.correct) return detail;
+          found += 1;
+          return {
+            ...detail,
+            correct: true,
+            alternative: true,
+            missing: false,
+            marks: detail.typed.split('').map((ch) => ({ ch, ok: true })),
+            extra: [],
+          };
+        });
+
+        if (found > 0) {
+          setToast({ msg: `有 ${found} 处是近义替换，也算对哦 ✨`, type: 'ok' });
+        }
+        return next;
+      } catch {
+        // 复核失败不影响正常判分
+        return details;
+      }
+    },
+    [],
+  );
+
+  const handleCheck = useCallback(async () => {
+    if (!current || !exercise || phase !== 'typing' || checking) return;
 
     const hasInput = isDictation
       ? typedSentence.trim().length > 0
@@ -219,73 +293,81 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
       return;
     }
 
-    let details: CheckDetail[];
-    let extraWords: string[] = [];
-    let mistakes: number;
-    let overallCorrect: boolean;
+    setChecking(true);
+    try {
+      let details: CheckDetail[];
+      let extraWords: string[] = [];
 
-    if (isDictation) {
-      const result = checkDictation(current.text, typedSentence);
-      details = result.details;
-      extraWords = result.extraWords;
-      mistakes = result.mistakes;
-      overallCorrect = result.correct;
-    } else {
-      details = checkBlanks(exercise, typedWords);
-      mistakes = details.filter((detail) => !detail.correct).length;
-      overallCorrect = mistakes === 0;
+      if (isDictation) {
+        const result = checkDictation(current.text, typedSentence);
+        details = result.details;
+        extraWords = result.extraWords;
+      } else {
+        details = checkBlanks(exercise, typedWords);
+      }
+
+      // 本地近义复核（拼写变体已在 checkBlanks/checkDictation 内判对）
+      details = await refineWithSemantics(details, current);
+
+      const mistakes =
+        details.filter((detail) => !detail.correct).length + extraWords.length;
+      const overallCorrect = mistakes === 0;
+
+      setCheckDetails(details);
+      setDictationExtras(extraWords);
+      setPhase('checked');
+      setShowZh(true);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      if (overallCorrect) setCelebrate((n) => n + 1);
+
+      setHistory((prev) => [
+        ...prev,
+        {
+          sentenceId: current.id,
+          text: current.text,
+          zh: current.zh,
+          correct: overallCorrect,
+          mistakes,
+          details,
+          extraWords,
+        },
+      ]);
+
+      fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sentenceId: current.id,
+          datasetId: current.dataset_id,
+          mode,
+          correct: overallCorrect,
+          mistakes,
+          timeSpent: Math.max(
+            1,
+            Math.round((Date.now() - startedAtRef.current) / 1000),
+          ),
+          typedText: isDictation
+            ? typedSentence.trim()
+            : buildTypedSentence(exercise, typedWords),
+        }),
+      }).catch(() => {
+        /* 记录失败不打断练习 */
+      });
+    } finally {
+      setChecking(false);
     }
-
-    setCheckDetails(details);
-    setDictationExtras(extraWords);
-    setPhase('checked');
-    setShowZh(true);
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    if (overallCorrect) setCelebrate((n) => n + 1);
-
-    setHistory((prev) => [
-      ...prev,
-      {
-        sentenceId: current.id,
-        text: current.text,
-        zh: current.zh,
-        correct: overallCorrect,
-        mistakes,
-        details,
-        extraWords,
-      },
-    ]);
-
-    fetch('/api/records', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sentenceId: current.id,
-        datasetId: current.dataset_id,
-        mode,
-        correct: overallCorrect,
-        mistakes,
-        timeSpent: Math.max(
-          1,
-          Math.round((Date.now() - startedAtRef.current) / 1000),
-        ),
-        typedText: isDictation
-          ? typedSentence.trim()
-          : buildTypedSentence(exercise, typedWords),
-      }),
-    }).catch(() => {
-      /* 记录失败不打断练习 */
-    });
   }, [
     current,
     exercise,
     phase,
+    checking,
     typedWords,
     typedSentence,
     isDictation,
     mode,
     focusBlank,
     focusDictation,
+    refineWithSemantics,
   ]);
 
   const handleBlankKeyDown = useCallback(
@@ -613,6 +695,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     correctUnits,
     allCorrect,
     mistakes,
+    checking,
 
     // 提示开关
     showZh,

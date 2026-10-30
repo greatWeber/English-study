@@ -22,7 +22,7 @@ export function useHomePage(){
           .then((data) => {
             if (data.ok && data.datasets.length) {
               setDatasets(data.datasets);
-              setSelectedDataset(data.datasets[0].id);
+              setSelectedDataset(data.datasets[1].id);
             }
             setLoading(false);
           })

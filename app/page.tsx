@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { LEVELS, CATEGORIES, MODES } from '@/lib/constants';
 import { Mascot, BackgroundDecor, Confetti, KeyCap, StarDoodle } from '@/components/cartoon';
 import { OptionPill } from '@/components/optionPill';
-import { GlobeIcon } from '@/components/GlobeIcon';
+import { GlobeIcon } from '@/components/globeIcon';
 import { useHomePage } from '@/hooks/useHomePage';
 
 

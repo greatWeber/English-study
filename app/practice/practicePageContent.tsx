@@ -30,6 +30,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     correctUnits,
     allCorrect,
     mistakes,
+    checking,
     // 提示开关
     showZh,
     hintLetters,
@@ -123,6 +124,10 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
       else focusBlank(activeBlank);
     }, 0);
   };
+
+  const alternativeDetails = checkDetails.filter(
+    (detail) => detail.correct && detail.alternative,
+  );
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-cream font-cartoon text-ink">
@@ -489,9 +494,11 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   <div className="min-w-0">
                     <p className="text-sm font-extrabold md:text-base">
                       {allCorrect
-                        ? isDictation
-                          ? '整句全对！这一句写得漂亮'
-                          : '全对！这一题漂亮拿下'
+                        ? alternativeDetails.length > 0
+                          ? `全对！其中 ${alternativeDetails.length} 处是近义替换（也算对）`
+                          : isDictation
+                            ? '整句全对！这一句写得漂亮'
+                            : '全对！这一题漂亮拿下'
                         : isDictation
                           ? `还有 ${mistakes} 处需要订正`
                           : `还差一点点，有 ${mistakes} 个空需要订正`}
@@ -558,11 +565,15 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   <button
                     type="button"
                     onClick={handleCheck}
-                    disabled={filledCount === 0}
-                    className="ink-btn ink-btn-primary flex-1 py-4 text-base"
+                    disabled={filledCount === 0 || checking}
+                    className="ink-btn ink-btn-primary flex-1 py-4 text-base disabled:opacity-60"
                   >
                     <CheckCircle2 size={20} strokeWidth={3} />
-                    {isDictation ? '检查整句' : '检查答案'}
+                    {checking
+                      ? '正在批改…'
+                      : isDictation
+                        ? '检查整句'
+                        : '检查答案'}
                     <kbd className="ml-1 rounded-lg border-2 border-white/50 px-1.5 py-0.5 text-[10px] font-black">
                       Enter
                     </kbd>
@@ -656,6 +667,16 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                               ? `第 ${detail.order + 1} 个词`
                               : `第 ${detail.order + 1} 空`}
                           </span>
+                          {detail.typo && (
+                            <span className="ink-pill border-amber-300 bg-amber-50 py-0.5 text-[10px] text-amber-700">
+                              拼写错误
+                            </span>
+                          )}
+                          {detail.formError && (
+                            <span className="ink-pill border-violet-300 bg-violet-50 py-0.5 text-[10px] text-violet-700">
+                              词形错误
+                            </span>
+                          )}
                           <span className="text-red-500 line-through decoration-2">
                             {detail.typed || '（空着）'}
                           </span>
@@ -691,6 +712,52 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                         </span>
                       </li>
                     )}
+                  </ul>
+                </motion.section>
+              )}
+            </AnimatePresence>
+
+            {/* 近义替换：也算对，单独说明 */}
+            <AnimatePresence initial={false}>
+              {phase === 'checked' && alternativeDetails.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="ink-card mt-5 p-5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-8 w-8 place-items-center rounded-xl border-2 border-ink bg-[#E0F2FE] text-sm shadow-[2px_2px_0_0_#2B2B45]">
+                      🔁
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-extrabold">近义替换（也算对）</h3>
+                      <p className="text-[10px] font-bold text-ink/45">
+                        意思一样就是好答案，标准答案也一并记一下～
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="mt-3 space-y-2">
+                    {alternativeDetails.map((detail) => (
+                      <li
+                        key={detail.order}
+                        className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-sky-100 bg-[#F0F9FF] px-3 py-2 text-xs font-bold"
+                      >
+                        <span className="ink-pill border-sky-200 bg-white py-0.5 text-[10px] text-sky-600">
+                          {isDictation
+                            ? `第 ${detail.order + 1} 个词`
+                            : `第 ${detail.order + 1} 空`}
+                        </span>
+                        <span className="text-sky-700">{detail.typed}</span>
+                        {detail.typed.toLowerCase() !== detail.expected.toLowerCase() && (
+                          <>
+                            <span className="text-[10px] font-bold text-ink/35">标准答案</span>
+                            <span className="text-green-700">{detail.expected}</span>
+                          </>
+                        )}
+                      </li>
+                    ))}
                   </ul>
                 </motion.section>
               )}

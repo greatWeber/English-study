@@ -49,6 +49,28 @@ export type CheckDetail = {
   missing: boolean;
   marks: Mark[];
   extra: string[];
+  /** 判对但并非逐字一致：英美拼写变体或经 NLI 复核通过的近义替换 */
+  alternative?: boolean;
+  /** 更像把标准答案拼错了（编辑距离很小），用于区分「拼写错误」和「用词错误」 */
+  typo?: boolean;
+  /** 同一个词的另一种变形（sheep→sheeps、go→goes），属于词形/语法错误 */
+  formError?: boolean;
+};
+
+/** 一个待复核的空（学生写了词，但不与标准答案逐字一致） */
+export type JudgeItem = {
+  order: number;
+  expected: string;
+  typed: string;
+};
+
+/** 本地 NLI 复核结果 */
+export type JudgeResult = {
+  order: number;
+  accept: boolean;
+  entail: number;
+  contra: number;
+  cached?: boolean;
 };
 
 export type Attempt = {

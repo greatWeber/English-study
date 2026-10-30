@@ -60,6 +60,19 @@ db.exec(`
     FOREIGN KEY(sentence_id) REFERENCES sentences(id)
   );
 
+  -- 近义替换复核缓存：同一个空 + 同一个学生答案只推理一次
+  CREATE TABLE IF NOT EXISTS answer_equivalence (
+    sentence_id TEXT NOT NULL,
+    blank_order INTEGER NOT NULL,
+    typed       TEXT NOT NULL,
+    expected    TEXT NOT NULL,
+    accepted    INTEGER NOT NULL,   -- 0/1
+    entail      REAL,
+    contra      REAL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (sentence_id, blank_order, typed)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_sentences_dataset ON sentences(dataset_id);
   CREATE INDEX IF NOT EXISTS idx_sentences_level ON sentences(level);
   CREATE INDEX IF NOT EXISTS idx_sentences_category ON sentences(category);
@@ -257,6 +270,48 @@ export function getOverviewStats() {
     accuracy: avgAccuracy.acc ?? 0,
     distinctSentencesPracticed: distinctSentences.c,
   };
+}
+
+/* ============================================================ 近义替换缓存 */
+
+/** 读取某个空的复核缓存（按 句子 + 空序 + 学生答案 命中） */
+export function getEquivalence(sentenceId: string, blankOrder: number, typed: string) {
+  return db
+    .prepare(
+      `SELECT accepted, entail, contra FROM answer_equivalence
+       WHERE sentence_id = ? AND blank_order = ? AND typed = ?`,
+    )
+    .get(sentenceId, blankOrder, typed) as
+    | { accepted: number; entail: number | null; contra: number | null }
+    | undefined;
+}
+
+/** 写入/更新复核缓存 */
+export function saveEquivalence({
+  sentenceId,
+  blankOrder,
+  typed,
+  expected,
+  accepted,
+  entail,
+  contra,
+}: {
+  sentenceId: string;
+  blankOrder: number;
+  typed: string;
+  expected: string;
+  accepted: boolean;
+  entail: number;
+  contra: number;
+}) {
+  db.prepare(
+    `INSERT INTO answer_equivalence (sentence_id, blank_order, typed, expected, accepted, entail, contra)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(sentence_id, blank_order, typed) DO UPDATE SET
+       accepted = excluded.accepted,
+       entail = excluded.entail,
+       contra = excluded.contra`,
+  ).run(sentenceId, blankOrder, typed, expected, accepted ? 1 : 0, entail, contra);
 }
 
 /** 关闭数据库（用于测试/退出） */

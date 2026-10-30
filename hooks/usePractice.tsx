@@ -17,6 +17,8 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const level = searchParams.get('level') || 'all';
   const category = searchParams.get('category') || 'all';
   const mode: Mode = searchParams.get('mode') === 'dictation' ? 'dictation' : 'fill';
+  // 复习本「重练这一句」：只练指定句子
+  const ids = searchParams.get('ids') || '';
 
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     if (level !== 'all') url += `&level=${encodeURIComponent(level)}`;
     if (category !== 'all') url += `&category=${encodeURIComponent(category)}`;
     if (reviewMode) url += '&excludeMastered=1';
+    if (ids) url += `&ids=${encodeURIComponent(ids)}`;
 
     setLoading(true);
     fetch(url)
@@ -85,7 +88,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     return () => {
       cancelled = true;
     };
-  }, [dataset, level, category, mode, reviewMode]);
+  }, [dataset, level, category, mode, reviewMode, ids]);
 
   /* ---------------- 每题初始化 ---------------- */
 

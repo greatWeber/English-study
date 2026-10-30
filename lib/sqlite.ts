@@ -147,12 +147,15 @@ export function listSentences({
   category,
   limit = 20,
   excludeMastered = false,
+  ids,
 }: {
   datasetId?: string;
   level?: string;
   category?: string;
   limit?: number;
   excludeMastered?: boolean;
+  /** 指定句子 id（复习本「重练这一句」用），给了就只返回这些 */
+  ids?: string[];
 }) {
   let sql = `
     SELECT s.id, s.dataset_id, s.level, s.category, s.text, s.zh, s.blanks, s.source,
@@ -174,6 +177,19 @@ export function listSentences({
   if (category) {
     sql += ` AND s.category = ?`;
     params.push(category);
+  }
+
+  // 指定 id 时忽略随机排序，按给定顺序返回（复习本单句重练）
+  if (ids && ids.length) {
+    const ph = ids.map(() => '?').join(',');
+    sql += ` AND s.id IN (${ph})`;
+    params.push(...ids);
+    const order = ` CASE s.id ${ids
+      .map((_, i) => `WHEN ? THEN ${i}`)
+      .join(' ')} ELSE ${ids.length} END`;
+    sql += ` ORDER BY${order} LIMIT ?`;
+    params.push(...ids, ids.length);
+    return db.prepare(sql).all(params);
   }
 
   if (excludeMastered) {
@@ -254,6 +270,17 @@ export function getReviewSentences(limit = 20) {
      ORDER BY accuracy ASC, st.total_attempts DESC
      LIMIT ?`
   ).all(limit);
+}
+
+/** 清空做题记录与统计（复习本「清空错题本」用），返回删掉的记录数 */
+export function clearAllRecords() {
+  const { c } = db.prepare('SELECT COUNT(*) AS c FROM practice_records').get() as { c: number };
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM practice_records').run();
+    db.prepare('DELETE FROM sentence_stats').run();
+  });
+  tx();
+  return { deleted: c };
 }
 
 /** 获取总体统计 */

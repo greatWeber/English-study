@@ -1,5 +1,6 @@
 import { BlankSlot } from "@/components/blankSlot";
 import { BackgroundDecor, Mascot, Confetti, KeyCap } from "@/components/cartoon";
+import { DictationBoard } from "@/components/dictationBoard";
 import { usePractice } from "@/hooks/usePractice";
 import { buildChunks } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,15 +15,19 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     currentIndex,
     phase,
     mode,
+    isDictation,
     current,
     exercise,
     detailByOrder,
     // 输入 / 批改状态
     typedWords,
+    typedSentence,
+    dictationExtras,
     checkDetails,
     activeBlank,
     filledCount,
-    totalBlanks,
+    totalUnits,
+    correctUnits,
     allCorrect,
     mistakes,
     // 提示开关
@@ -49,9 +54,13 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     setToast,
     // 输入 / 焦点
     registerInput,
+    registerDictationInput,
     focusBlank,
+    focusDictation,
     handleInputChange,
+    handleDictationChange,
     handleBlankKeyDown,
+    handleDictationKeyDown,
     // 操作
     resetQuestion,
     handleCheck,
@@ -106,6 +115,14 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
   }
 
   /* ---------------- 主界面 ---------------- */
+
+  const refocusTypingInput = () => {
+    if (phase !== 'typing') return;
+    window.setTimeout(() => {
+      if (isDictation) focusDictation();
+      else focusBlank(activeBlank);
+    }, 0);
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-cream font-cartoon text-ink">
@@ -327,9 +344,17 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                 <span className="flex items-center gap-1.5 text-[11px] font-extrabold text-ink/55">
                   <span className="inline-block h-2 w-2 rounded-full bg-cartoon-orange" />
                   {phase === 'typing'
-                    ? `${totalBlanks} 个空 · 点下划线输入`
+                    ? isDictation
+                      ? `${totalUnits} 个词 · 看中文写英文`
+                      : `${totalUnits} 个空 · 点下划线输入`
                     : phase === 'checked'
-                      ? `${totalBlanks - mistakes} / ${totalBlanks} 个空写对`
+                      ? isDictation
+                        ? `${correctUnits} / ${totalUnits} 个词写对${
+                            dictationExtras.length > 0
+                              ? ` · 多写 ${dictationExtras.length}`
+                              : ''
+                          }`
+                        : `${correctUnits} / ${totalUnits} 个空写对`
                       : '答案已亮出'}
                 </span>
               </div>
@@ -337,51 +362,70 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               <div className="relative overflow-hidden bg-[#FFFDF7] px-3 py-9 md:px-10 md:py-12">
                 <div className="paper-dots absolute inset-0 opacity-40" />
 
-                <div className="relative z-10 mx-auto text-center text-[25px] font-bold leading-[2.15] md:text-[33px]">
-                  {exercise &&
-                    buildChunks(exercise).map((chunk, index) => (
-                      <span key={`chunk-${index}`}>
-                        {chunk.space ? ' ' : null}
-                        <span className="inline-block align-middle">
-                          {chunk.blankOrder !== undefined ? (
-                            <BlankSlot
-                              answer={exercise.blanks[chunk.blankOrder].answer}
-                              typed={typedWords[chunk.blankOrder] ?? ''}
-                              order={chunk.blankOrder}
-                              phase={phase}
-                              active={activeBlank === chunk.blankOrder}
-                              hint={hintLetters}
-                              detail={detailByOrder.get(chunk.blankOrder)}
-                              punctuation={chunk.punct}
-                              registerInput={registerInput}
-                              onFocus={setActiveBlank}
-                              onChange={handleInputChange}
-                              onKeyDown={handleBlankKeyDown}
-                            />
-                          ) : (
-                            <span className="whitespace-nowrap">
-                              {chunk.wordText}
-                              <span className="text-ink/40">{chunk.punct}</span>
+                {isDictation ? (
+                  <DictationBoard
+                    text={current?.text ?? ''}
+                    zh={current?.zh}
+                    phase={phase}
+                    typed={typedSentence}
+                    showZh={showZh}
+                    hint={hintLetters}
+                    allCorrect={allCorrect}
+                    detailByOrder={detailByOrder}
+                    extraWords={dictationExtras}
+                    registerInput={registerDictationInput}
+                    onChange={handleDictationChange}
+                    onKeyDown={handleDictationKeyDown}
+                  />
+                ) : (
+                  <>
+                    <div className="relative z-10 mx-auto text-center text-[25px] font-bold leading-[2.15] md:text-[33px]">
+                      {exercise &&
+                        buildChunks(exercise).map((chunk, index) => (
+                          <span key={`chunk-${index}`}>
+                            {chunk.space ? ' ' : null}
+                            <span className="inline-block align-middle">
+                              {chunk.blankOrder !== undefined ? (
+                                <BlankSlot
+                                  answer={exercise.blanks[chunk.blankOrder].answer}
+                                  typed={typedWords[chunk.blankOrder] ?? ''}
+                                  order={chunk.blankOrder}
+                                  phase={phase}
+                                  active={activeBlank === chunk.blankOrder}
+                                  hint={hintLetters}
+                                  detail={detailByOrder.get(chunk.blankOrder)}
+                                  punctuation={chunk.punct}
+                                  registerInput={registerInput}
+                                  onFocus={setActiveBlank}
+                                  onChange={handleInputChange}
+                                  onKeyDown={handleBlankKeyDown}
+                                />
+                              ) : (
+                                <span className="whitespace-nowrap">
+                                  {chunk.wordText}
+                                  <span className="text-ink/40">{chunk.punct}</span>
+                                </span>
+                              )}
                             </span>
-                          )}
-                        </span>
-                      </span>
-                    ))}
-                </div>
+                          </span>
+                        ))}
+                    </div>
 
-                <AnimatePresence initial={false}>
-                  {showZh && current?.zh && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="relative z-10 mx-auto mt-6 flex max-w-xl items-start justify-center gap-2 rounded-2xl border-2 border-dashed border-ink/25 bg-white/85 px-4 py-2.5 text-center text-sm font-bold leading-relaxed text-ink/65"
-                    >
-                      <Languages size={16} strokeWidth={2.5} className="mt-0.5 shrink-0" />
-                      <span>{current.zh}</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    <AnimatePresence initial={false}>
+                      {showZh && current?.zh && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          className="relative z-10 mx-auto mt-6 flex max-w-xl items-start justify-center gap-2 rounded-2xl border-2 border-dashed border-ink/25 bg-white/85 px-4 py-2.5 text-center text-sm font-bold leading-relaxed text-ink/65"
+                        >
+                          <Languages size={16} strokeWidth={2.5} className="mt-0.5 shrink-0" />
+                          <span>{current.zh}</span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t-[3px] border-dashed border-ink/15 bg-white px-4 py-2.5 md:px-6">
@@ -390,9 +434,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     type="button"
                     onClick={() => {
                       setHintLetters((value) => !value);
-                      if (phase === 'typing') {
-                        window.setTimeout(() => focusBlank(activeBlank), 0);
-                      }
+                      refocusTypingInput();
                     }}
                     aria-pressed={hintLetters}
                     className={`ink-pill gap-1.5 border-2 py-1.5 transition-all ${
@@ -408,9 +450,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     type="button"
                     onClick={() => {
                       setShowZh((value) => !value);
-                      if (phase === 'typing') {
-                        window.setTimeout(() => focusBlank(activeBlank), 0);
-                      }
+                      refocusTypingInput();
                     }}
                     aria-pressed={showZh}
                     className={`ink-pill gap-1.5 border-2 py-1.5 transition-all ${
@@ -424,7 +464,9 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   </button>
                 </div>
                 <p className="text-[11px] font-bold text-ink/40">
-                  Tab / 空格 跳下一空 · Enter 检查
+                  {isDictation
+                    ? 'Enter 检查 · Shift + Enter 换行 · 标点不计错'
+                    : 'Tab / 空格 跳下一空 · Enter 检查'}
                 </p>
               </div>
             </section>
@@ -447,13 +489,19 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   <div className="min-w-0">
                     <p className="text-sm font-extrabold md:text-base">
                       {allCorrect
-                        ? '全对！这一题漂亮拿下'
-                        : `还差一点点，有 ${mistakes} 个空需要订正`}
+                        ? isDictation
+                          ? '整句全对！这一句写得漂亮'
+                          : '全对！这一题漂亮拿下'
+                        : isDictation
+                          ? `还有 ${mistakes} 处需要订正`
+                          : `还差一点点，有 ${mistakes} 个空需要订正`}
                     </p>
                     <p className="text-[11px] font-bold text-ink/55 md:text-xs">
                       {allCorrect
                         ? '按 Enter 直接进入下一题'
-                        : '看看下面的批改小报告，再试一次也可以'}
+                        : isDictation
+                          ? '看看下面的逐词对照，再试一次也可以'
+                          : '看看下面的批改小报告，再试一次也可以'}
                     </p>
                   </div>
                   {allCorrect ? (
@@ -478,7 +526,9 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                 >
                   <span className="text-2xl">💡</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-extrabold">答案已经全部填好啦</p>
+                    <p className="text-sm font-extrabold">
+                      {isDictation ? '整句答案已经亮出来啦' : '答案已经全部填好啦'}
+                    </p>
                     <p className="text-[11px] font-bold text-ink/55">
                       大声读一遍，再进入下一题吧～
                     </p>
@@ -512,7 +562,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     className="ink-btn ink-btn-primary flex-1 py-4 text-base"
                   >
                     <CheckCircle2 size={20} strokeWidth={3} />
-                    检查答案
+                    {isDictation ? '检查整句' : '检查答案'}
                     <kbd className="ml-1 rounded-lg border-2 border-white/50 px-1.5 py-0.5 text-[10px] font-black">
                       Enter
                     </kbd>
@@ -568,7 +618,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               )}
             </div>
 
-            {/* 批改小报告 */}
+            {/* 批改 / 逐词对照 */}
             <AnimatePresence initial={false}>
               {phase === 'checked' && mistakes > 0 && (
                 <motion.section
@@ -582,9 +632,13 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                       📝
                     </span>
                     <div>
-                      <h3 className="text-sm font-extrabold">批改小报告</h3>
+                      <h3 className="text-sm font-extrabold">
+                        {isDictation ? '逐词对照' : '批改小报告'}
+                      </h3>
                       <p className="text-[10px] font-bold text-ink/45">
-                        红色的地方再瞄一眼，印象更深
+                        {isDictation
+                          ? '红色的词再记一遍，整句就稳了'
+                          : '红色的地方再瞄一眼，印象更深'}
                       </p>
                     </div>
                   </div>
@@ -598,7 +652,9 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                           className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-ink/10 bg-[#FFFDF7] px-3 py-2 text-xs font-bold"
                         >
                           <span className="ink-pill border-ink/20 bg-white py-0.5 text-[10px]">
-                            第 {detail.order + 1} 空
+                            {isDictation
+                              ? `第 ${detail.order + 1} 个词`
+                              : `第 ${detail.order + 1} 空`}
                           </span>
                           <span className="text-red-500 line-through decoration-2">
                             {detail.typed || '（空着）'}
@@ -621,6 +677,20 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                           </div>
                         </li>
                       ))}
+
+                    {isDictation && dictationExtras.length > 0 && (
+                      <li className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-red-100 bg-[#FFF5F5] px-3 py-2 text-xs font-bold">
+                        <span className="ink-pill border-red-200 bg-white py-0.5 text-[10px] text-red-500">
+                          多写
+                        </span>
+                        <span className="text-red-500 line-through decoration-2">
+                          {dictationExtras.join(' / ')}
+                        </span>
+                        <span className="text-[10px] font-bold text-ink/40">
+                          整句里不需要这些词，删掉就好
+                        </span>
+                      </li>
+                    )}
                   </ul>
                 </motion.section>
               )}
@@ -628,15 +698,29 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
 
             {/* 快捷键说明 */}
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-ink/40">
-              <KeyCap>空格</KeyCap> 跳下一空
-              <span className="text-ink/20">·</span>
-              <KeyCap>Tab</KeyCap> 切换
-              <span className="text-ink/20">·</span>
-              <KeyCap>Enter</KeyCap> 检查 / 下一题
-              <span className="text-ink/20">·</span>
-              <KeyCap>⌘H</KeyCap> 首字母
-              <span className="text-ink/20">·</span>
-              <KeyCap>Esc</KeyCap> 重做
+              {isDictation ? (
+                <>
+                  <KeyCap>Enter</KeyCap> 检查 / 下一题
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>Shift + Enter</KeyCap> 换行
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>⌘H</KeyCap> 首字母
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>Esc</KeyCap> 重做
+                </>
+              ) : (
+                <>
+                  <KeyCap>空格</KeyCap> 跳下一空
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>Tab</KeyCap> 切换
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>Enter</KeyCap> 检查 / 下一题
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>⌘H</KeyCap> 首字母
+                  <span className="text-ink/20">·</span>
+                  <KeyCap>Esc</KeyCap> 重做
+                </>
+              )}
             </div>
           </>
         )}

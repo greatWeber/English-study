@@ -58,9 +58,23 @@ export type Attempt = {
   correct: boolean;
   mistakes: number;
   details: CheckDetail[];
+  extraWords?: string[];
 };
 
 export type Toast = { msg: string; type: 'ok' | 'warn' };
+
+export type DictationPart = {
+  text: string;
+  isWord: boolean;
+  wordIndex?: number;
+};
+
+export type DictationCheck = {
+  details: CheckDetail[];
+  extraWords: string[];
+  mistakes: number;
+  correct: boolean;
+};
 
 export type RenderChunk = {
   space: string;

@@ -1,6 +1,12 @@
 import { CATEGORIES } from "@/lib/constants";
 import { Sentence, Phase, CheckDetail, Attempt, Toast, Mode } from "@/lib/type";
-import { buildExercise, checkBlanks, buildTypedSentence } from "@/lib/utils";
+import {
+  buildExercise,
+  checkBlanks,
+  buildTypedSentence,
+  checkDictation,
+  countDictationWords,
+} from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 
@@ -17,6 +23,8 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const [currentIndex, setCurrentIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('typing');
   const [typedWords, setTypedWords] = useState<string[]>([]);
+  const [typedSentence, setTypedSentence] = useState('');
+  const [dictationExtras, setDictationExtras] = useState<string[]>([]);
   const [checkDetails, setCheckDetails] = useState<CheckDetail[]>([]);
   const [history, setHistory] = useState<Attempt[]>([]);
   const [showZh, setShowZh] = useState(false);
@@ -27,8 +35,10 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const [celebrate, setCelebrate] = useState(0);
 
   const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+  const dictationRef = useRef<HTMLTextAreaElement | null>(null);
   const startedAtRef = useRef<number>(Date.now());
 
+  const isDictation = mode === 'dictation';
   const current = sentences[currentIndex];
   const exercise = useMemo(
     () => (current ? buildExercise(current.text, mode, current.blanks) : null),
@@ -61,6 +71,8 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
           setHistory([]);
           setCheckDetails([]);
           setTypedWords([]);
+          setTypedSentence('');
+          setDictationExtras([]);
           setPhase('typing');
         }
         setLoading(false);
@@ -79,12 +91,15 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   useEffect(() => {
     if (!exercise) return;
     setTypedWords(Array(exercise.blanks.length).fill(''));
+    setTypedSentence('');
+    setDictationExtras([]);
     setCheckDetails([]);
     setPhase('typing');
     setActiveBlank(0);
-    setShowZh(false);
+    // 整句默写默认展示中文提示，填空模式默认隐藏中文
+    setShowZh(mode === 'dictation');
     startedAtRef.current = Date.now();
-  }, [exercise]);
+  }, [exercise, mode]);
 
   useEffect(() => {
     if (!toast) return;
@@ -97,6 +112,10 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const registerInput = useCallback((order: number, el: HTMLInputElement | null) => {
     if (el) inputRefs.current.set(order, el);
     else inputRefs.current.delete(order);
+  }, []);
+
+  const registerDictationInput = useCallback((el: HTMLTextAreaElement | null) => {
+    dictationRef.current = el;
   }, []);
 
   const focusBlank = useCallback((order: number) => {
@@ -114,16 +133,37 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     });
   }, []);
 
-  // 新题出现后自动把光标放进第一个空，键盘一按就能写
+  const focusDictation = useCallback(() => {
+    const el = dictationRef.current;
+    if (!el) return;
+    el.focus();
+    window.requestAnimationFrame(() => {
+      const len = el.value.length;
+      try {
+        el.setSelectionRange(len, len);
+      } catch {
+        /* 忽略浏览器差异 */
+      }
+    });
+  }, []);
+
+  const focusFirstInput = useCallback(() => {
+    if (isDictation) focusDictation();
+    else focusBlank(0);
+  }, [isDictation, focusBlank, focusDictation]);
+
+  // 新题出现后自动聚焦：填空落到第一个空，默写落到整句输入框
   useEffect(() => {
     if (phase !== 'typing' || !exercise) return;
     const timer = window.setTimeout(() => {
       const active = document.activeElement;
-      if (active instanceof HTMLInputElement) return;
-      focusBlank(0);
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) {
+        return;
+      }
+      focusFirstInput();
     }, 90);
     return () => window.clearTimeout(timer);
-  }, [exercise, phase, focusBlank]);
+  }, [exercise, phase, focusFirstInput]);
 
   const handleInputChange = useCallback(
     (order: number, raw: string) => {
@@ -142,30 +182,62 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     [phase, exercise, focusBlank],
   );
 
+  const handleDictationChange = useCallback(
+    (value: string) => {
+      if (phase !== 'typing') return;
+      setTypedSentence(value.replace(/\r/g, ''));
+    },
+    [phase],
+  );
+
   const resetQuestion = useCallback(() => {
     if (!exercise) return;
     setTypedWords(Array(exercise.blanks.length).fill(''));
+    setTypedSentence('');
+    setDictationExtras([]);
     setCheckDetails([]);
     setPhase('typing');
     setActiveBlank(0);
     startedAtRef.current = Date.now();
-    window.setTimeout(() => focusBlank(0), 60);
-  }, [exercise, focusBlank]);
+    window.setTimeout(() => {
+      if (isDictation) focusDictation();
+      else focusBlank(0);
+    }, 60);
+  }, [exercise, isDictation, focusBlank, focusDictation]);
 
   const handleCheck = useCallback(() => {
     if (!current || !exercise || phase !== 'typing') return;
 
-    if (typedWords.every((word) => !word.trim())) {
+    const hasInput = isDictation
+      ? typedSentence.trim().length > 0
+      : typedWords.some((word) => word.trim().length > 0);
+
+    if (!hasInput) {
       setToast({ msg: '先写点什么再检查吧～', type: 'warn' });
-      focusBlank(0);
+      if (isDictation) focusDictation();
+      else focusBlank(0);
       return;
     }
 
-    const details = checkBlanks(exercise, typedWords);
-    const mistakes = details.filter((detail) => !detail.correct).length;
-    const overallCorrect = mistakes === 0;
+    let details: CheckDetail[];
+    let extraWords: string[] = [];
+    let mistakes: number;
+    let overallCorrect: boolean;
+
+    if (isDictation) {
+      const result = checkDictation(current.text, typedSentence);
+      details = result.details;
+      extraWords = result.extraWords;
+      mistakes = result.mistakes;
+      overallCorrect = result.correct;
+    } else {
+      details = checkBlanks(exercise, typedWords);
+      mistakes = details.filter((detail) => !detail.correct).length;
+      overallCorrect = mistakes === 0;
+    }
 
     setCheckDetails(details);
+    setDictationExtras(extraWords);
     setPhase('checked');
     setShowZh(true);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
@@ -180,6 +252,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
         correct: overallCorrect,
         mistakes,
         details,
+        extraWords,
       },
     ]);
 
@@ -196,12 +269,24 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
           1,
           Math.round((Date.now() - startedAtRef.current) / 1000),
         ),
-        typedText: buildTypedSentence(exercise, typedWords),
+        typedText: isDictation
+          ? typedSentence.trim()
+          : buildTypedSentence(exercise, typedWords),
       }),
     }).catch(() => {
       /* 记录失败不打断练习 */
     });
-  }, [current, exercise, phase, typedWords, mode, focusBlank]);
+  }, [
+    current,
+    exercise,
+    phase,
+    typedWords,
+    typedSentence,
+    isDictation,
+    mode,
+    focusBlank,
+    focusDictation,
+  ]);
 
   const handleBlankKeyDown = useCallback(
     (order: number, event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -254,6 +339,24 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     [phase, exercise, handleCheck, resetQuestion, focusBlank],
   );
 
+  const handleDictationKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (phase !== 'typing') return;
+      if (event.key === 'Enter' && !event.shiftKey) {
+        // ⌘/Ctrl + Enter 交给全局快捷键处理（看答案）
+        if (event.metaKey || event.ctrlKey) return;
+        event.preventDefault();
+        handleCheck();
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        resetQuestion();
+      }
+    },
+    [phase, handleCheck, resetQuestion],
+  );
+
   const handleNext = useCallback(() => {
     if (currentIndex + 1 >= sentences.length) {
       setPhase('summary');
@@ -261,12 +364,14 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     }
     // 先清掉上一题的批改结果，避免切换瞬间闪出旧的对错标记
     setTypedWords([]);
+    setTypedSentence('');
+    setDictationExtras([]);
     setCheckDetails([]);
-    setShowZh(false);
+    setShowZh(mode === 'dictation');
     setPhase('typing');
     startedAtRef.current = Date.now();
     setCurrentIndex((index) => index + 1);
-  }, [currentIndex, sentences.length]);
+  }, [currentIndex, sentences.length, mode]);
 
   const handleReveal = useCallback(() => {
     setPhase('revealed');
@@ -279,18 +384,23 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     setHistory([]);
     setCheckDetails([]);
     setTypedWords(exercise ? Array(exercise.blanks.length).fill('') : []);
+    setTypedSentence('');
+    setDictationExtras([]);
     setPhase('typing');
     setActiveBlank(0);
-    setShowZh(false);
+    setShowZh(mode === 'dictation');
     setCelebrate(0);
     startedAtRef.current = Date.now();
 
     if (currentIndex !== 0) {
       setCurrentIndex(0);
     } else {
-      window.setTimeout(() => focusBlank(0), 80);
+      window.setTimeout(() => {
+        if (isDictation) focusDictation();
+        else focusBlank(0);
+      }, 80);
     }
-  }, [exercise, currentIndex, focusBlank]);
+  }, [exercise, currentIndex, mode, isDictation, focusBlank, focusDictation]);
 
   const finishEarly = useCallback(() => {
     if (history.length === 0) {
@@ -318,6 +428,9 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'h') {
         event.preventDefault();
         setHintLetters((value) => !value);
+        if (phase === 'typing' && !isEditable) {
+          window.setTimeout(focusFirstInput, 0);
+        }
         return;
       }
 
@@ -336,7 +449,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
         return;
       }
 
-      if (event.key === 'Escape' && phase === 'typing') {
+      if (event.key === 'Escape' && phase === 'typing' && !isEditable) {
         event.preventDefault();
         resetQuestion();
         return;
@@ -353,6 +466,14 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
         !event.isComposing &&
         event.key.length === 1
       ) {
+        // 整句默写：把按键写进整句文本框
+        if (isDictation) {
+          event.preventDefault();
+          setTypedSentence((prev) => prev + event.key);
+          focusDictation();
+          return;
+        }
+
         const total = exercise?.blanks.length ?? 0;
         if (total === 0) return;
         const order = Math.min(activeBlank, total - 1);
@@ -379,7 +500,10 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     phase,
     activeBlank,
     exercise,
+    isDictation,
     focusBlank,
+    focusDictation,
+    focusFirstInput,
     handleNext,
     handleReveal,
     resetQuestion,
@@ -388,15 +512,24 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   /* ---------------- 派生状态 ---------------- */
 
   const totalBlanks = exercise?.blanks.length ?? 0;
-  const filledCount = typedWords.filter((word) => word.trim()).length;
+  const totalUnits = isDictation
+    ? countDictationWords(current?.text ?? '')
+    : totalBlanks;
+  const filledCount = isDictation
+    ? countDictationWords(typedSentence)
+    : typedWords.filter((word) => word.trim()).length;
+  const correctUnits = checkDetails.filter((detail) => detail.correct).length;
   const attempts = history.length;
   const correctAttempts = history.filter((attempt) => attempt.correct).length;
   const accuracy = attempts > 0 ? Math.round((correctAttempts / attempts) * 100) : 0;
   const allCorrect =
     phase === 'checked' &&
     checkDetails.length > 0 &&
-    checkDetails.every((detail) => detail.correct);
-  const mistakes = checkDetails.filter((detail) => !detail.correct).length;
+    checkDetails.every((detail) => detail.correct) &&
+    dictationExtras.length === 0;
+  const mistakes =
+    checkDetails.filter((detail) => !detail.correct).length +
+    (isDictation ? dictationExtras.length : 0);
   const progress = sentences.length
     ? Math.min(((currentIndex + 1) / sentences.length) * 100, 100)
     : 0;
@@ -428,14 +561,29 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
 
   const tip = (() => {
     if (phase === 'checked') {
-      return allCorrect
-        ? '全对！你的拼写闪闪发光，继续保持 ✨'
+      if (allCorrect) {
+        return isDictation
+          ? '整句全对！你的记忆力和拼写都闪闪发光 ✨'
+          : '全对！你的拼写闪闪发光，继续保持 ✨';
+      }
+      return isDictation
+        ? `就差一点点，${mistakes} 处看看下面的逐词对照～`
         : `就差一点点，${mistakes} 个空看看下面的小报告～`;
     }
     if (phase === 'revealed') return '答案已经亮出来啦，记一记，下一题一定行！';
+
+    if (isDictation) {
+      if (hintLetters) return '首字母已经露出来啦，顺着把整句写完吧～';
+      if (filledCount === 0) return '先读懂中文，再把整句英文写进下面的默写纸吧！';
+      if (filledCount < totalUnits) {
+        return `已经写了 ${filledCount} / ${totalUnits} 个词，继续把整句补完整～`;
+      }
+      return '整句写完啦，按 Enter 检查一下？';
+    }
+
     if (hintLetters) return '首字母偷偷露出头啦，顺着往下写～';
     if (filledCount === 0) return '点一下彩色下划线，把缺的单词写进去吧！';
-    if (filledCount < totalBlanks) return `已经填好 ${filledCount} / ${totalBlanks} 个空啦，继续加油！`;
+    if (filledCount < totalUnits) return `已经填好 ${filledCount} / ${totalUnits} 个空啦，继续加油！`;
     return '每个空都填好了，按 Enter 检查一下？';
   })();
 
@@ -448,16 +596,21 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     currentIndex,
     phase,
     mode,
+    isDictation,
     current,
     exercise,
     detailByOrder,
 
     // 输入 / 批改状态
     typedWords,
+    typedSentence,
+    dictationExtras,
     checkDetails,
     activeBlank,
     filledCount,
     totalBlanks,
+    totalUnits,
+    correctUnits,
     allCorrect,
     mistakes,
 
@@ -489,9 +642,13 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
 
     // 输入 / 焦点
     registerInput,
+    registerDictationInput,
     focusBlank,
+    focusDictation,
     handleInputChange,
+    handleDictationChange,
     handleBlankKeyDown,
+    handleDictationKeyDown,
 
     // 操作
     resetQuestion,

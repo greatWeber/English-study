@@ -1,5 +1,5 @@
 import { FUNCTION_WORDS } from "./constants";
-import { Blank, CheckDetail, Exercise, Mark, Mode, RenderChunk, Token } from "./type";
+import { Blank, CheckDetail, DictationCheck, DictationPart, Exercise, Mark, Mode, RenderChunk, Token } from "./type";
 
 export function tokenize(text: string) {
   const tokens: Token[] = [];
@@ -36,6 +36,59 @@ export function isContentWord(w: string) {
 
 export function normalizeWord(w: string) {
   return w.toLowerCase().replace(/[’‘]/g, "'").replace(/[^a-z']/g, '');
+}
+
+/* ============================================================
+   整句默写：把句子拆成「单词 / 非单词」片段
+   ============================================================ */
+
+const DICTATION_WORD_PATTERN = /[A-Za-z0-9]+(?:['’‘-][A-Za-z0-9]+)*/g;
+
+export function splitDictation(text: string): DictationPart[] {
+  const parts: DictationPart[] = [];
+  const re = new RegExp(DICTATION_WORD_PATTERN.source, 'g');
+  let lastIndex = 0;
+  let wordIndex = 0;
+  let match: RegExpExecArray | null = re.exec(text);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      parts.push({ text: text.slice(lastIndex, match.index), isWord: false });
+    }
+    parts.push({ text: match[0], isWord: true, wordIndex: wordIndex++ });
+    lastIndex = match.index + match[0].length;
+    match = re.exec(text);
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ text: text.slice(lastIndex), isWord: false });
+  }
+
+  return parts;
+}
+
+export function dictationWords(text: string) {
+  return splitDictation(text)
+    .filter((part) => part.isWord)
+    .map((part) => part.text);
+}
+
+export function countDictationWords(text: string) {
+  return dictationWords(text).length;
+}
+
+export function normalizeDictationWord(word: string) {
+  return word.toLowerCase().replace(/[’‘]/g, "'").replace(/[^a-z0-9']/g, '');
+}
+
+export function buildDictationHint(text: string) {
+  return splitDictation(text)
+    .map((part) => {
+      if (!part.isWord) return part.text;
+      const first = part.text[0] ?? '';
+      return `${first}${'·'.repeat(Math.max(part.text.length - 1, 0))}`;
+    })
+    .join('');
 }
 
 export function parseCuratedBlanks(raw: unknown): string[] {
@@ -173,6 +226,115 @@ export function checkBlanks(exercise: Exercise, typedWords: string[]): CheckDeta
       extra,
     };
   });
+}
+
+/* ============================================================
+   整句默写判分：按单词对齐，忽略大小写和标点
+   ============================================================ */
+
+export function checkDictation(expected: string, typed: string): DictationCheck {
+  const expectedWords = dictationWords(expected);
+  const typedWords = dictationWords(typed);
+  const m = expectedWords.length;
+  const n = typedWords.length;
+
+  const normalizedExpected = expectedWords.map(normalizeDictationWord);
+  const normalizedTyped = typedWords.map(normalizeDictationWord);
+
+  // 单词级编辑距离，用来把漏写、多写、拼错的词对齐
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    Array<number>(n + 1).fill(0),
+  );
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const substitution =
+        dp[i - 1][j - 1] +
+        (normalizedExpected[i - 1] === normalizedTyped[j - 1] ? 0 : 1);
+      dp[i][j] = Math.min(
+        substitution,
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+      );
+    }
+  }
+
+  type Operation = { expected?: string; typed?: string };
+  const operations: Operation[] = [];
+  let i = m;
+  let j = n;
+
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0) {
+      const substitution =
+        dp[i - 1][j - 1] +
+        (normalizedExpected[i - 1] === normalizedTyped[j - 1] ? 0 : 1);
+      if (dp[i][j] === substitution) {
+        operations.push({
+          expected: expectedWords[i - 1],
+          typed: typedWords[j - 1],
+        });
+        i--;
+        j--;
+        continue;
+      }
+    }
+
+    if (i > 0 && dp[i][j] === dp[i - 1][j] + 1) {
+      operations.push({ expected: expectedWords[i - 1] });
+      i--;
+      continue;
+    }
+
+    if (j > 0) {
+      operations.push({ typed: typedWords[j - 1] });
+      j--;
+    }
+  }
+
+  operations.reverse();
+
+  const details: CheckDetail[] = [];
+  const extraWords: string[] = [];
+  let order = 0;
+
+  operations.forEach((operation) => {
+    if (operation.expected !== undefined) {
+      const expectedWord = operation.expected;
+      const typedWord = operation.typed ?? '';
+      const correct =
+        typedWord.length > 0 &&
+        normalizeDictationWord(typedWord) ===
+          normalizeDictationWord(expectedWord);
+      const { marks, extra } = diffWord(expectedWord, typedWord);
+      details.push({
+        order: order++,
+        expected: expectedWord,
+        typed: typedWord,
+        correct,
+        missing: typedWord.length === 0,
+        marks,
+        extra,
+      });
+    } else if (operation.typed !== undefined) {
+      extraWords.push(operation.typed);
+    }
+  });
+
+  const mistakes =
+    details.filter((detail) => !detail.correct).length + extraWords.length;
+
+  return {
+    details,
+    extraWords,
+    mistakes,
+    correct:
+      details.length > 0 &&
+      details.every((detail) => detail.correct) &&
+      extraWords.length === 0,
+  };
 }
 
 export function buildTypedSentence(exercise: Exercise, typedWords: string[]) {

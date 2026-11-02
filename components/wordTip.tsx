@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { WordEntry } from '@/lib/dictionary';
+import { WordAudio } from '@/components/wordAudio';
 
 /** 选区位置（视口坐标）：x=水平中心，top/bottom=选区上下缘，below=空间不足时翻到下方 */
 type Anchor = { x: number; top: number; bottom: number; below: boolean };
@@ -198,11 +199,10 @@ export function WordTipProvider({ children }: { children: React.ReactNode }) {
                       </span>
                     )}
                   </p>
-                  {tip.entry.phonetic && (
-                    <p className="mt-0.5 font-mono text-[13px] font-bold text-cartoon-blue">
-                      /{tip.entry.phonetic}/
-                    </p>
-                  )}
+                  <p className="mt-0.5 flex items-center gap-1 font-mono text-[13px] font-bold text-cartoon-blue">
+                    {tip.entry.phonetic && <span>/{tip.entry.phonetic}/</span>}
+                    <WordAudio word={tip.entry.word} />
+                  </p>
                 </div>
                 <button
                   type="button"

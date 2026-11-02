@@ -14,6 +14,8 @@ type BlankSlotProps = {
   onFocus: (order: number) => void;
   onChange: (order: number, value: string) => void;
   onKeyDown: (order: number, event: React.KeyboardEvent<HTMLInputElement>) => void;
+  /** 朗读逐词高亮：当前正读到该词 */
+  spoken?: boolean;
 };
 
 export function BlankSlot({
@@ -29,6 +31,7 @@ export function BlankSlot({
   onFocus,
   onChange,
   onKeyDown,
+  spoken,
 }: BlankSlotProps) {
   const isChecked = phase === 'checked';
   const isRevealed = phase === 'revealed';
@@ -96,7 +99,9 @@ export function BlankSlot({
         ) : (
           <span
             data-lookup-word={answer}
-            className="relative z-10 flex h-full items-center justify-center px-1 font-extrabold leading-none"
+            className={`relative z-10 flex h-full items-center justify-center rounded-md px-1 font-extrabold leading-none transition-colors ${
+              spoken ? 'bg-cartoon-orange/70 text-white' : ''
+            }`}
             title={
               isAlternative && detail?.typed
                 ? `接受了近义替换：${detail.typed}`

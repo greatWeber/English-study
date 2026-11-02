@@ -1,10 +1,12 @@
+import { useEffect, useState } from "react";
 import { BlankSlot } from "@/components/blankSlot";
 import { BackgroundDecor, Mascot, Confetti, KeyCap } from "@/components/cartoon";
 import { DictationBoard } from "@/components/dictationBoard";
 import { usePractice } from "@/hooks/usePractice";
+import { useSpeech } from "@/hooks/useSpeech";
 import { buildChunks } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Star, Home, RotateCcw, Flag, Languages, Lightbulb, CheckCircle2, XCircleIcon, Eye } from "lucide-react";
+import { ArrowRight, Star, Home, RotateCcw, Flag, Languages, Lightbulb, CheckCircle2, XCircleIcon, Eye, Volume2, Turtle } from "lucide-react";
 import Link from "next/link";
 
 export function PracticePageContent({ searchParams }: { searchParams: URLSearchParams }) {
@@ -74,6 +76,38 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     // 路由
     router,
   } = usePractice({ searchParams });
+
+  /* ---------------- 朗读 ---------------- */
+
+  const speech = useSpeech();
+  const [speakRate, setSpeakRate] = useState<number | null>(null);
+
+  // 换题 / 回到输入阶段时停掉朗读，避免高亮和声音串题
+  useEffect(() => {
+    speech.stop();
+    setSpeakRate(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, phase]);
+
+  // 朗读自然结束时复位按钮状态
+  useEffect(() => {
+    if (!speech.playing) setSpeakRate(null);
+  }, [speech.playing]);
+
+  // 朗读按钮全程可用；但输入阶段只播放、不高亮（高亮会提示答案）
+  const canSpeak = speech.supported && !!current?.text;
+  const canHighlight = phase === 'checked' || phase === 'revealed';
+
+  const toggleSpeak = (rate: number) => {
+    if (!current) return;
+    if (speech.playing && speakRate === rate) {
+      speech.stop();
+      setSpeakRate(null);
+      return;
+    }
+    setSpeakRate(rate);
+    speech.speak(current.text, rate);
+  };
 
   /* ---------------- 加载 / 空状态 ---------------- */
 
@@ -381,39 +415,66 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     registerInput={registerDictationInput}
                     onChange={handleDictationChange}
                     onKeyDown={handleDictationKeyDown}
+                    spokenIndex={canHighlight && speech.playing ? speech.wordIndex : -1}
                   />
                 ) : (
                   <>
                     <div className="relative z-10 mx-auto text-center text-[25px] font-bold leading-[2.15] md:text-[33px]">
                       {exercise &&
-                        buildChunks(exercise).map((chunk, index) => (
-                          <span key={`chunk-${index}`}>
-                            {chunk.space ? ' ' : null}
-                            <span className="inline-block align-middle">
-                              {chunk.blankOrder !== undefined ? (
-                                <BlankSlot
-                                  answer={exercise.blanks[chunk.blankOrder].answer}
-                                  typed={typedWords[chunk.blankOrder] ?? ''}
-                                  order={chunk.blankOrder}
-                                  phase={phase}
-                                  active={activeBlank === chunk.blankOrder}
-                                  hint={hintLetters}
-                                  detail={detailByOrder.get(chunk.blankOrder)}
-                                  punctuation={chunk.punct}
-                                  registerInput={registerInput}
-                                  onFocus={setActiveBlank}
-                                  onChange={handleInputChange}
-                                  onKeyDown={handleBlankKeyDown}
-                                />
-                              ) : (
-                                <span className="whitespace-nowrap">
-                                  {chunk.wordText}
-                                  <span className="text-ink/40">{chunk.punct}</span>
+                        (() => {
+                          const chunks = buildChunks(exercise);
+                          // 每个 chunk 的「词序号」（与朗读按空格分词的顺序一致），独立标点不计
+                          let wordCounter = 0;
+                          const chunkWordIndex = chunks.map((chunk) => {
+                            const source =
+                              chunk.blankOrder !== undefined
+                                ? exercise.blanks[chunk.blankOrder].answer
+                                : chunk.wordText ?? '';
+                            if (!/[A-Za-z0-9]/.test(source)) return -1;
+                            return wordCounter++;
+                          });
+                          return chunks.map((chunk, index) => {
+                            const spoken =
+                              canHighlight &&
+                              speech.playing &&
+                              chunkWordIndex[index] === speech.wordIndex;
+                            return (
+                              <span key={`chunk-${index}`}>
+                                {chunk.space ? ' ' : null}
+                                <span className="inline-block align-middle">
+                                  {chunk.blankOrder !== undefined ? (
+                                    <BlankSlot
+                                      answer={exercise.blanks[chunk.blankOrder].answer}
+                                      typed={typedWords[chunk.blankOrder] ?? ''}
+                                      order={chunk.blankOrder}
+                                      phase={phase}
+                                      active={activeBlank === chunk.blankOrder}
+                                      hint={hintLetters}
+                                      detail={detailByOrder.get(chunk.blankOrder)}
+                                      punctuation={chunk.punct}
+                                      registerInput={registerInput}
+                                      onFocus={setActiveBlank}
+                                      onChange={handleInputChange}
+                                      onKeyDown={handleBlankKeyDown}
+                                      spoken={spoken}
+                                    />
+                                  ) : (
+                                    <span
+                                      className={`whitespace-nowrap rounded-md transition-colors ${
+                                        spoken ? 'bg-cartoon-orange/70 text-white' : ''
+                                      }`}
+                                    >
+                                      {chunk.wordText}
+                                      <span className={spoken ? 'text-white/80' : 'text-ink/40'}>
+                                        {chunk.punct}
+                                      </span>
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </span>
-                          </span>
-                        ))}
+                              </span>
+                            );
+                          });
+                        })()}
                     </div>
 
                     <AnimatePresence initial={false}>
@@ -467,6 +528,36 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     <Languages size={13} strokeWidth={3} />
                     中文
                   </button>
+                  {canSpeak && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => toggleSpeak(1)}
+                        aria-pressed={speech.playing && speakRate === 1}
+                        className={`ink-pill gap-1.5 border-2 py-1.5 transition-all ${
+                          speech.playing && speakRate === 1
+                            ? 'bg-cartoon-mint shadow-[2px_2px_0_0_#2B2B45]'
+                            : 'bg-white hover:bg-[#E6F9F1]'
+                        }`}
+                      >
+                        <Volume2 size={13} strokeWidth={3} />
+                        朗读
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleSpeak(0.7)}
+                        aria-pressed={speech.playing && speakRate === 0.7}
+                        className={`ink-pill gap-1.5 border-2 py-1.5 transition-all ${
+                          speech.playing && speakRate === 0.7
+                            ? 'bg-cloud/60 shadow-[2px_2px_0_0_#2B2B45]'
+                            : 'bg-white hover:bg-[#EEF6FF]'
+                        }`}
+                      >
+                        <Turtle size={13} strokeWidth={3} />
+                        慢速
+                      </button>
+                    </>
+                  )}
                 </div>
                 <p className="text-[11px] font-bold text-ink/40">
                   {isDictation

@@ -22,6 +22,8 @@ type DictationBoardProps = {
   registerInput: (el: HTMLTextAreaElement | null) => void;
   onChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** 朗读逐词高亮：当前正读到第几个词（-1 无） */
+  spokenIndex?: number;
 };
 
 export function DictationBoard({
@@ -37,6 +39,7 @@ export function DictationBoard({
   registerInput,
   onChange,
   onKeyDown,
+  spokenIndex = -1,
 }: DictationBoardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const wordCount = countDictationWords(typed);
@@ -136,14 +139,15 @@ export function DictationBoard({
             }
             const detail = detailByOrder.get(part.wordIndex ?? -1);
             const ok = phase === 'revealed' || !detail || detail.correct;
+            const spoken = part.wordIndex !== undefined && part.wordIndex === spokenIndex;
             return (
               <span
                 key={`part-${index}`}
-                className={
+                className={`rounded-md transition-colors ${
                   ok
                     ? 'text-green-700'
                     : 'text-red-500 underline decoration-red-300 decoration-2 underline-offset-4'
-                }
+                } ${spoken ? 'bg-cartoon-orange/70 !text-white' : ''}`}
               >
                 {part.text}
               </span>

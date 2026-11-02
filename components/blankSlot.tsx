@@ -95,6 +95,7 @@ export function BlankSlot({
           />
         ) : (
           <span
+            data-lookup-word={answer}
             className="relative z-10 flex h-full items-center justify-center px-1 font-extrabold leading-none"
             title={
               isAlternative && detail?.typed

@@ -87,14 +87,40 @@ export function WordTipProvider({ children }: { children: React.ReactNode }) {
       // 让浏览器先落定选区，再取文本
       timer = setTimeout(() => {
         const selection = window.getSelection();
-        const text = selection ? selection.toString() : '';
-        const word = asLookupWord(text);
+        const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+        if (!selection || !range || selection.isCollapsed) {
+          clear();
+          return;
+        }
+
+        // 判分后的填空单词是逐字母 span，双击只会选中单个字母；
+        // 若选区完整地落在这种词内部，扩展到整词，并直接查它的答案文本
+        const node = range.commonAncestorContainer;
+        const host =
+          (node instanceof Element ? node : node.parentElement)?.closest('[data-lookup-word]') ?? null;
+        const hostWord = host?.getAttribute('data-lookup-word') ?? '';
+        if (host && hostWord) {
+          const hostRange = document.createRange();
+          hostRange.selectNodeContents(host);
+          const inside =
+            hostRange.compareBoundaryPoints(Range.START_TO_START, range) <= 0 &&
+            range.compareBoundaryPoints(Range.END_TO_END, hostRange) <= 0;
+          const word = asLookupWord(hostWord);
+          if (inside && word) {
+            // 高亮整个单词，所见即所查
+            selection.removeAllRanges();
+            selection.addRange(hostRange);
+            lookup(word, host.getBoundingClientRect());
+            return;
+          }
+        }
+
+        const word = asLookupWord(selection.toString());
         if (!word) {
           clear();
           return;
         }
-        const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
-        const rect = range?.getBoundingClientRect();
+        const rect = range.getBoundingClientRect();
         if (!rect || (rect.width === 0 && rect.height === 0)) return;
         lookup(word, rect);
       }, 120);

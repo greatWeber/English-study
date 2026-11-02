@@ -598,8 +598,8 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                       {allCorrect
                         ? '按 Enter 直接进入下一题'
                         : isDictation
-                          ? '看看下面的逐词对照，再试一次也可以'
-                          : '看看下面的批改小报告，再试一次也可以'}
+                          ? '看看下面的逐词对照，按 Enter 清空再试一次'
+                          : '看看下面的批改小报告，按 Enter 清空再试一次'}
                     </p>
                   </div>
                   {allCorrect ? (
@@ -688,24 +688,49 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
 
               {(phase === 'checked' || phase === 'revealed') && (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleNext}
-                    className="ink-btn ink-btn-primary flex-1 py-4 text-base"
-                  >
-                    下一题 <ArrowRight size={20} strokeWidth={3} />
-                    <kbd className="ml-1 rounded-lg border-2 border-white/50 px-1.5 py-0.5 text-[10px] font-black">
-                      Enter
-                    </kbd>
-                  </button>
-                  {phase === 'checked' && (
-                    <button
-                      type="button"
-                      onClick={resetQuestion}
-                      className="ink-btn ink-btn-white px-4 py-4 sm:px-5"
-                    >
-                      <RotateCcw size={17} strokeWidth={3} /> 再试一次
-                    </button>
+                  {phase === 'checked' && !allCorrect ? (
+                    /* 答错：Enter = 清空重做本题，下一题降为次按钮 */
+                    <>
+                      <button
+                        type="button"
+                        onClick={resetQuestion}
+                        className="ink-btn ink-btn-primary flex-1 py-4 text-base"
+                      >
+                        <RotateCcw size={20} strokeWidth={3} /> 再试一次
+                        <kbd className="ml-1 rounded-lg border-2 border-white/50 px-1.5 py-0.5 text-[10px] font-black">
+                          Enter
+                        </kbd>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="ink-btn ink-btn-white px-4 py-4 sm:px-5"
+                      >
+                        下一题 <ArrowRight size={17} strokeWidth={3} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="ink-btn ink-btn-primary flex-1 py-4 text-base"
+                      >
+                        下一题 <ArrowRight size={20} strokeWidth={3} />
+                        <kbd className="ml-1 rounded-lg border-2 border-white/50 px-1.5 py-0.5 text-[10px] font-black">
+                          Enter
+                        </kbd>
+                      </button>
+                      {phase === 'checked' && (
+                        <button
+                          type="button"
+                          onClick={resetQuestion}
+                          className="ink-btn ink-btn-white px-4 py-4 sm:px-5"
+                        >
+                          <RotateCcw size={17} strokeWidth={3} /> 再试一次
+                        </button>
+                      )}
+                    </>
                   )}
                   {phase === 'revealed' && (
                     <button
@@ -858,7 +883,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-ink/40">
               {isDictation ? (
                 <>
-                  <KeyCap>Enter</KeyCap> 检查 / 下一题
+                  <KeyCap>Enter</KeyCap> 检查 · 答错重做 · 全对下一题
                   <span className="text-ink/20">·</span>
                   <KeyCap>Shift + Enter</KeyCap> 换行
                   <span className="text-ink/20">·</span>
@@ -872,7 +897,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   <span className="text-ink/20">·</span>
                   <KeyCap>Tab</KeyCap> 切换
                   <span className="text-ink/20">·</span>
-                  <KeyCap>Enter</KeyCap> 检查 / 下一题
+                  <KeyCap>Enter</KeyCap> 检查 · 答错重做 · 全对下一题
                   <span className="text-ink/20">·</span>
                   <KeyCap>⌘H</KeyCap> 首字母
                   <span className="text-ink/20">·</span>

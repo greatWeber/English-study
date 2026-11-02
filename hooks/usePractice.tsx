@@ -495,6 +495,13 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     setPhase('summary');
   }, [history.length]);
 
+  /** 本题是否全对（需在快捷键逻辑前定义，Enter 依此决定下一题还是重做） */
+  const allCorrect =
+    phase === 'checked' &&
+    checkDetails.length > 0 &&
+    checkDetails.every((detail) => detail.correct) &&
+    dictationExtras.length === 0;
+
   /* ---------------- 全局快捷键 ---------------- */
 
   useEffect(() => {
@@ -522,12 +529,17 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault();
         if (phase === 'typing') handleReveal();
-        else if (phase === 'checked' || phase === 'revealed') handleNext();
+        // 答错时不快捷跳题（避免 ⌘Enter 顺手一按跳过错题），只有全对才进下一题
+        else if (phase === 'revealed' || (phase === 'checked' && allCorrect)) handleNext();
         return;
       }
 
       if (event.key === 'Enter' && !isEditable && !isInteractive) {
-        if (phase === 'checked' || phase === 'revealed') {
+        if (phase === 'checked' && !allCorrect) {
+          // 答错时 Enter = 清空重做本题，而不是跳到下一题
+          event.preventDefault();
+          resetQuestion();
+        } else if (phase === 'checked' || phase === 'revealed') {
           event.preventDefault();
           handleNext();
         }
@@ -592,6 +604,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     handleNext,
     handleReveal,
     resetQuestion,
+    allCorrect,
   ]);
 
   /* ---------------- 派生状态 ---------------- */
@@ -607,11 +620,6 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const attempts = history.length;
   const correctAttempts = history.filter((attempt) => attempt.correct).length;
   const accuracy = attempts > 0 ? Math.round((correctAttempts / attempts) * 100) : 0;
-  const allCorrect =
-    phase === 'checked' &&
-    checkDetails.length > 0 &&
-    checkDetails.every((detail) => detail.correct) &&
-    dictationExtras.length === 0;
   const mistakes =
     checkDetails.filter((detail) => !detail.correct).length +
     (isDictation ? dictationExtras.length : 0);

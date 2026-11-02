@@ -8,12 +8,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "import:data": "node lib/import-sentences.mjs"
+    "import:data": "node lib/import-sentences.mjs",
+    "build:dict": "node lib/build-dict.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.2",
     "better-sqlite3": "^9.4.0",
     "clsx": "^2.1.0",
+    "ecc-universal": "^2.2.3",
     "framer-motion": "^11.5.4",
     "lucide-react": "^0.447.0",
     "next": "14.2.0",

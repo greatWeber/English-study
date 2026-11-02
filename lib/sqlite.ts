@@ -341,6 +341,31 @@ export function saveEquivalence({
   ).run(sentenceId, blankOrder, typed, expected, accepted ? 1 : 0, entail, contra);
 }
 
+/* ============================================================ 离线单词词典 */
+
+/** 按小写词形精确查一条词典记录（word_dict 由 npm run build:dict 生成） */
+export function getDictEntry(word: string) {
+  return db
+    .prepare(
+      `SELECT word, phonetic, translation, definition, pos, collins, oxford, tag, inf_of, inf_label
+       FROM word_dict WHERE word = ?`,
+    )
+    .get(word) as
+    | {
+        word: string;
+        phonetic: string;
+        translation: string;
+        definition: string;
+        pos: string;
+        collins: number;
+        oxford: number;
+        tag: string;
+        inf_of: string;
+        inf_label: string;
+      }
+    | undefined;
+}
+
 /** 关闭数据库（用于测试/退出） */
 export function close() {
   db.close();

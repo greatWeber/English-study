@@ -18,6 +18,7 @@
 | **本地持久化** | SQLite (`better-sqlite3`) 记录每次作答、统计、复习调度，重启不丢 |
 | **卡通趣味风** | 温暖配色、圆角卡片、弹跳/浮动动画、表情符号装饰，轻松不枯燥 |
 | **键盘优先** | Space/Tab 跳格、←→ 跨词、Esc 重做、Enter 判分、⌘H 首字母提示、⌘/Ctrl+Enter 看答案 |
+| **划词词典** | 鼠标选中任意英文单词，气泡显示音标 + 中文释义 + 考试标签（ECDICT 离线词典，支持 walked/children 等变形） |
 
 ---
 
@@ -33,7 +34,10 @@ npm install
 # 3. 导入内置语料到 SQLite（只需跑一次）
 npm run import:data
 
-# 4. 启动开发服务器
+# 4. 构建离线划词词典（只需跑一次，需联网下载 ECDICT）
+npm run build:dict
+
+# 5. 启动开发服务器
 npm run dev
 # → 打开 http://localhost:3000
 ```
@@ -51,17 +55,21 @@ english-dictation/
 │   │   ├── datasets/route.ts      # 获取语料库列表
 │   │   ├── sentences/route.ts     # 按条件抽题
 │   │   ├── records/route.ts       # 保存作答记录
-│   │   └── stats/route.ts         # 统计/错题复习
+│   │   ├── stats/route.ts         # 统计/错题复习
+│   │   └── dict/route.ts          # 划词词典查询（音标/释义）
 │   ├── globals.css                # Tailwind + 卡通主题
-│   ├── layout.tsx                 # 根布局
+│   ├── layout.tsx                 # 根布局（挂全局划词词典 Provider）
 │   ├── page.tsx                   # 🏠 首页：选语料库/等级/场景/模式
 │   ├── practice/page.tsx          # ✏️ 练习页：填空/默写核心交互
 │   └── review/page.tsx            # 🔥 复习页：错题集中练
 ├── components/                    # (可拆分的共享组件)
+│   └── wordTip.tsx                # 💬 划词气泡：选词显示音标+中文释义
 ├── lib/
 │   ├── sqlite.ts                  # 数据库连接 & CURD
 │   ├── constants.ts               # 等级/场景/模式定义
-│   └── import-sentences.mjs       # 一次性导入旧版 JSON 语料
+│   ├── dictionary.ts              # 查词逻辑（词形还原兜底）
+│   ├── import-sentences.mjs       # 一次性导入旧版 JSON 语料
+│   └── build-dict.mjs             # 构建 word_dict 离线词典（ECDICT）
 ├── legacy/                        # 旧版单文件版（已归档）
 ├── data/dictation.db              # SQLite 数据库（运行时生成）
 ├── tailwind.config.ts             # 卡通色板、动画、圆角
@@ -116,12 +124,17 @@ practice_records(id, sentence_id, dataset_id, mode, correct, mistakes, time_spen
 
 -- 句子级统计（用于复习调度）
 sentence_stats(sentence_id, total_attempts, correct_count, last_attempt_at, next_review_at)
+
+-- 划词离线词典（npm run build:dict 生成，约 8.8 万词）
+word_dict(word PK, phonetic, translation, definition, pos, collins, oxford, tag, bnc, frq, inf_of, inf_label)
 ```
 
 **复习调度规则**（简化版）：
 - 做错 → 1 小时后 `next_review_at` 再出现
 - 连对 3 次 → 视为掌握，暂不安排复习
 - 正确率 < 70% → 复习页优先展示
+
+**词典说明**：`word_dict` 只收录常用词（Collins/Oxford/考试标签/词频任一信号），并自动展开 walked、children 等变形词条（`inf_of` 指向原形）。数据源 [ECDICT](https://github.com/skywind3000/ECDICT)（MIT），由 `npm run build:dict` 在线拉取生成。
 
 ---
 
@@ -148,6 +161,9 @@ npm start
 
 # 重新导入语料（修改 legacy/data 后）
 npm run import:data
+
+# 重建划词词典（word_dict 表，数据源 ECDICT，需联网）
+npm run build:dict
 
 # 检查类型
 npx tsc --noEmit
@@ -176,6 +192,7 @@ ls -la data/dictation.db
 - **内置 126 句**：MIT
 - **Tatoeba 600 句**：遵循 Tatoeba CC BY 2.0 FR / CC0（生成脚本头部已标注来源）
 - **CEFR-J / Octanove 词表**：分别遵循「需引用」与 CC BY-SA 4.0
+- **划词词典**：[ECDICT](https://github.com/skywind3000/ECDICT)（MIT，由 `npm run build:dict` 拉取生成，不入库）
 
 ---
 
@@ -185,6 +202,7 @@ ls -la data/dictation.db
 - [CEFR-J Vocabulary Profile](https://github.com/openlanguageprofiles/olp-en-cefrj) — 词级 CEFR 标注
 - [Octanove](https://github.com/openlanguageprofiles/olp-en-cefrj) — C1/C2 词表
 - [Lucide](https://lucide.dev) / [Framer Motion](https://www.framer.com/motion/) / [Tailwind CSS](https://tailwindcss.com) — 优秀的开源工具
+- [ECDICT](https://github.com/skywind3000/ECDICT) — 开源英汉词典，划词功能的数据源
 
 ---
 

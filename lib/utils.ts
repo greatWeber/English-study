@@ -223,8 +223,8 @@ const SUFFIX_RULES: Array<[RegExp, string]> = [
 
 const dedupeTail = (s: string) => s.replace(/([^aeiou])\1$/, '$1');
 
-/** 一个词所有可能的词根候选（含自身） */
-function lemmaCandidates(word: string): string[] {
+/** 一个词所有可能的词根候选（含自身）。导出给词典查询做词形兜底 */
+export function lemmaCandidates(word: string): string[] {
   const start = normalizeWord(word);
   const seen = new Set<string>();
   const out: string[] = [];

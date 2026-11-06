@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BlankSlot } from "@/components/blankSlot";
-import { BackgroundDecor, Mascot, KeyCap, WinStamp, StarFlight, CountUp } from "@/components/cartoon";
+import { Mascot, KeyCap, WinStamp, StarFlight, CountUp } from "@/components/cartoon";
+import { BackgroundDecor } from "@/components/interactiveBackground";
 import { DictationBoard } from "@/components/dictationBoard";
 import { usePractice } from "@/hooks/usePractice";
 import { useSpeech } from "@/hooks/useSpeech";

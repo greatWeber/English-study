@@ -1,6 +1,7 @@
 'use client';
 
-import { BackgroundDecor, Mascot } from "@/components/cartoon";
+import { Mascot } from "@/components/cartoon";
+import { BackgroundDecor } from "@/components/interactiveBackground";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { PracticePageContent } from "./practicePageContent";

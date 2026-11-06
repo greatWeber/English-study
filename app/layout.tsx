@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { WordTipProvider } from '@/components/wordTip';
+import { BackgroundModeSwitcher } from '@/components/interactiveBackground';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -11,7 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN">
       <body className="bg-cartoon-yellow/10 min-h-screen font-sans antialiased selection:bg-cartoon-orange selection:text-white">
-        <WordTipProvider>{children}</WordTipProvider>
+        <WordTipProvider>
+          {children}
+          <BackgroundModeSwitcher />
+        </WordTipProvider>
       </body>
     </html>
   );

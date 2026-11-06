@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BackgroundDecor, Mascot, StarDoodle } from '@/components/cartoon';
+import { Mascot, StarDoodle } from '@/components/cartoon';
+import { BackgroundDecor } from '@/components/interactiveBackground';
 import { CATEGORIES } from '@/lib/constants';
 import type { Sentence } from '@/lib/type';
 

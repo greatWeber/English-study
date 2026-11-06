@@ -10,52 +10,61 @@ const PREFERRED_VOICES = [
   'Google UK English Female',
 ];
 
+/** 与 splitDictation 相同的分词正则，保证高亮词序一致 */
+const WORD_RE = /[A-Za-z0-9]+(?:['’‘-][A-Za-z0-9]+)*/g;
+
+type TtsMark = { text: string; offsetMs: number; durationMs: number };
+
+/** 按单词正则把字符偏移换算成词序号 */
+function wordIndexAt(text: string, charIndex: number): number {
+  const before = text.slice(0, Math.max(0, Math.min(charIndex, text.length)));
+  return before.match(WORD_RE)?.length ?? 0;
+}
+
 /**
- * 浏览器内置语音朗读（Web Speech API）：
- * - macOS/Chrome 使用系统本地语音，离线可用
- * - onboundary 事件回调当前读到的词序号，供逐词高亮
- * - Safari 等不支持 boundary 的浏览器只朗读不高亮，不影响功能
+ * 句子朗读：优先用服务端微软神经网络语音（/api/tts，自然有感情 + 精确逐词时间戳），
+ * 失败时自动回落到浏览器内置 Web Speech API（离线可用但机械）。
  */
 export function useSpeech() {
-  const supported =
-    typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const supported = typeof window !== 'undefined';
   const [playing, setPlaying] = useState(false);
   const [wordIndex, setWordIndex] = useState(-1);
   const sessionRef = useRef(0);
-  // 语音列表要等 voiceschanged 才有内容（Chrome 首次 getVoices() 是空数组）
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  // 服务端合成连续失败后不再反复尝试（比如断网时）
+  const serverBrokenRef = useRef(false);
+
+  // ---- 回落：浏览器内置语音（Web Speech API）----
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
-  const retryRef = useRef<(() => void) | null>(null);
+  const wsSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
   useEffect(() => {
-    if (!supported) return;
+    if (!wsSupported) return;
     const sync = () => {
       voicesRef.current = window.speechSynthesis.getVoices();
-      // 若正有一次朗读在等语音列表，列表到了就补发
-      const pending = retryRef.current;
-      if (pending && voicesRef.current.length > 0) {
-        retryRef.current = null;
-        pending();
-      }
     };
     sync();
     window.speechSynthesis.addEventListener('voiceschanged', sync);
     return () => window.speechSynthesis.removeEventListener('voiceschanged', sync);
-  }, [supported]);
+  }, [wsSupported]);
 
-  const stop = useCallback(() => {
-    sessionRef.current += 1;
-    retryRef.current = null;
-    if (supported) window.speechSynthesis.cancel();
-    setPlaying(false);
-    setWordIndex(-1);
-  }, [supported]);
+  const stopWs = useCallback(() => {
+    if (!wsSupported) return;
+    // 空闲时调 cancel() 会吞掉后续 speak()（Chrome bug），只在有内容时打断
+    if (window.speechSynthesis.speaking || window.speechSynthesis.paused) {
+      window.speechSynthesis.cancel();
+    }
+  }, [wsSupported]);
 
   const pickVoice = (): SpeechSynthesisVoice | undefined => {
-    const voices = voicesRef.current.length
-      ? voicesRef.current
-      : window.speechSynthesis.getVoices();
+    const voices =
+      voicesRef.current.length && wsSupported
+        ? voicesRef.current
+        : wsSupported
+          ? window.speechSynthesis.getVoices()
+          : [];
     const en = voices.filter((v) => v.lang?.toLowerCase().startsWith('en'));
-    // Google 语音走服务器合成，离线/网络受限时会静默失败 → 本地语音优先
+    // Google 语音走云端，离线/网络受限会静默失败 → 本地语音优先
     const local = en.filter((v) => v.localService);
     const pool = local.length > 0 ? local : en;
     return (
@@ -65,103 +74,182 @@ export function useSpeech() {
     );
   };
 
+  const speakViaWebSpeech = useCallback(
+    (text: string, rate: number, session: number) => {
+      if (!wsSupported) {
+        setPlaying(false);
+        return;
+      }
+      stopWs();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice();
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+      } else {
+        utterance.lang = 'en-US';
+      }
+      utterance.rate = rate;
+
+      utterance.onstart = () => {
+        if (session === sessionRef.current) setPlaying(true);
+      };
+      utterance.onboundary = (event) => {
+        if (session !== sessionRef.current) return;
+        setWordIndex(wordIndexAt(text, event.charIndex ?? 0));
+      };
+      utterance.onend = () => {
+        if (session !== sessionRef.current) return;
+        setPlaying(false);
+        setWordIndex(-1);
+      };
+      utterance.onerror = () => {
+        if (session !== sessionRef.current) return;
+        setPlaying(false);
+        setWordIndex(-1);
+      };
+
+      setWordIndex(-1);
+      setPlaying(true);
+      window.speechSynthesis.speak(utterance);
+
+      // 兜底：600ms 后仍没真正开始（无声卡死），用最简设置重试一次
+      window.setTimeout(() => {
+        if (session === sessionRef.current && !window.speechSynthesis.speaking) {
+          setPlaying(false);
+          const retry = new SpeechSynthesisUtterance(text);
+          retry.lang = 'en-US';
+          retry.rate = rate;
+          retry.onend = () => {
+            if (session === sessionRef.current) {
+              setPlaying(false);
+              setWordIndex(-1);
+            }
+          };
+          retry.onerror = () => {
+            if (session === sessionRef.current) {
+              setPlaying(false);
+              setWordIndex(-1);
+            }
+          };
+          window.speechSynthesis.cancel();
+          setPlaying(true);
+          window.speechSynthesis.speak(retry);
+        }
+      }, 600);
+    },
+    [wsSupported, stopWs]
+  );
+
+  // ---- 主路径：服务端神经语音 ----
+  const speakViaServer = useCallback(
+    async (text: string, rate: number, session: number) => {
+      const res = await fetch(`/api/tts?text=${encodeURIComponent(text)}&rate=${rate}`);
+      if (!res.ok) throw new Error(`tts ${res.status}`);
+
+      const marksHeader = res.headers.get('X-Tts-Marks');
+      let marks: TtsMark[] = [];
+      try {
+        marks = marksHeader ? JSON.parse(decodeURIComponent(marksHeader)) : [];
+      } catch {
+        marks = [];
+      }
+
+      const blob = await res.blob();
+      if (session !== sessionRef.current) return; // 期间被 stop / 换了句子
+      const url = URL.createObjectURL(blob);
+
+      const audio = new Audio(url);
+      audioRef.current?.pause();
+      audioRef.current = audio;
+
+      audio.addEventListener('timeupdate', () => {
+        if (session !== sessionRef.current) return;
+        const tMs = audio.currentTime * 1000;
+        if (marks.length > 0) {
+          // 精确时间戳：找最后一个已开始的词
+          let idx = -1;
+          for (let i = 0; i < marks.length; i++) {
+            if (marks[i].offsetMs <= tMs + 60) idx = i;
+            else break;
+          }
+          setWordIndex(idx);
+        } else {
+          // 没时间戳时按播放进度估算
+          if (audio.duration && isFinite(audio.duration)) {
+            const charIndex = Math.floor((audio.currentTime / audio.duration) * text.length);
+            setWordIndex(wordIndexAt(text, charIndex));
+          }
+        }
+      });
+      const finish = () => {
+        URL.revokeObjectURL(url);
+        if (session !== sessionRef.current) return;
+        setPlaying(false);
+        setWordIndex(-1);
+      };
+      audio.addEventListener('ended', finish);
+      audio.addEventListener('error', () => {
+        URL.revokeObjectURL(url);
+        if (session !== sessionRef.current) return;
+        // 播放失败退回内置语音
+        speakViaWebSpeech(text, rate, session);
+      });
+
+      setWordIndex(-1);
+      setPlaying(true);
+      await audio.play();
+    },
+    [speakViaWebSpeech]
+  );
+
   /** 朗读 text；词序号与 splitDictation 的单词顺序一致 */
   const speak = useCallback(
     (text: string, rate = 1) => {
-      if (!supported) return;
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed || !supported) return;
 
-      const run = () => {
-        const session = ++sessionRef.current;
-        // 注意：空闲时调 cancel() 会连带吞掉紧随其后的 speak()（Chrome bug），只在有内容时打断
-        if (window.speechSynthesis.speaking || window.speechSynthesis.paused) {
-          window.speechSynthesis.cancel();
-        }
-        if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      const session = ++sessionRef.current;
+      audioRef.current?.pause();
+      stopWs();
 
-        const utterance = new SpeechSynthesisUtterance(trimmed);
-        const voice = pickVoice();
-        if (voice) {
-          utterance.voice = voice;
-          utterance.lang = voice.lang;
-        } else {
-          utterance.lang = 'en-US';
-        }
-        utterance.rate = rate;
-
-        utterance.onstart = () => {
-          if (session === sessionRef.current) setPlaying(true);
-        };
-        utterance.onboundary = (event) => {
-          if (session !== sessionRef.current) return;
-          const head = Math.max(0, Math.min(event.charIndex ?? 0, trimmed.length));
-          // 按「单词正则」计数（跳过独立标点），与页面渲染的词序号一致
-          const before = trimmed.slice(0, head);
-          const count = before.match(/[A-Za-z0-9]+(?:['’‘-][A-Za-z0-9]+)*/g)?.length ?? 0;
-          setWordIndex(count);
-        };
-        utterance.onend = () => {
-          if (session !== sessionRef.current) return;
-          setPlaying(false);
-          setWordIndex(-1);
-        };
-        utterance.onerror = () => {
-          if (session !== sessionRef.current) return;
-          setPlaying(false);
-          setWordIndex(-1);
-        };
-
-        setWordIndex(-1);
-        setPlaying(true);
-        window.speechSynthesis.speak(utterance);
-
-        // 兜底：600ms 后仍没真正开始（无声卡死），安静重试一次
-        window.setTimeout(() => {
-          if (session === sessionRef.current && !window.speechSynthesis.speaking) {
-            setPlaying(false);
-            const retry = new SpeechSynthesisUtterance(trimmed);
-            retry.lang = 'en-US';
-            retry.rate = rate;
-            retry.onend = () => {
-              if (session === sessionRef.current) {
-                setPlaying(false);
-                setWordIndex(-1);
-              }
-            };
-            retry.onerror = () => {
-              if (session === sessionRef.current) {
-                setPlaying(false);
-                setWordIndex(-1);
-              }
-            };
-            window.speechSynthesis.cancel();
-            setPlaying(true);
-            window.speechSynthesis.speak(retry);
-          }
-        }, 600);
-      };
-
-      // 语音列表还没就绪（Chrome 冷启动）：等 voiceschanged 到达后再读，最多等 1.5s
-      if (voicesRef.current.length === 0 && window.speechSynthesis.getVoices().length === 0) {
-        let done = false;
-        const go = () => {
-          if (done) return;
-          done = true;
-          retryRef.current = null;
-          run();
-        };
-        retryRef.current = go;
-        window.setTimeout(go, 1500);
+      if (serverBrokenRef.current) {
+        speakViaWebSpeech(trimmed, rate, session);
         return;
       }
-      run();
+
+      speakViaServer(trimmed, rate, session).catch(() => {
+        if (session !== sessionRef.current) return;
+        serverBrokenRef.current = true;
+        speakViaWebSpeech(trimmed, rate, session);
+      });
     },
-    [supported]
+    [supported, stopWs, speakViaServer, speakViaWebSpeech]
   );
 
+  const stop = useCallback(() => {
+    sessionRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    stopWs();
+    setPlaying(false);
+    setWordIndex(-1);
+  }, [stopWs]);
+
   // 组件卸载时停止朗读
-  useEffect(() => stop, [stop]);
+  useEffect(
+    () => () => {
+      sessionRef.current += 1;
+      if (audioRef.current) audioRef.current.pause();
+      if (wsSupported && (window.speechSynthesis.speaking || window.speechSynthesis.paused)) {
+        window.speechSynthesis.cancel();
+      }
+    },
+    [wsSupported]
+  );
 
   return { supported, playing, wordIndex, speak, stop };
 }

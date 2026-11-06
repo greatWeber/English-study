@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { Phase, CheckDetail } from "@/lib/type";
 import { motion } from "framer-motion";
+import { Squiggle } from "@/components/cartoon";
 
 type BlankSlotProps = {
   answer: string;
@@ -16,6 +18,8 @@ type BlankSlotProps = {
   onKeyDown: (order: number, event: React.KeyboardEvent<HTMLInputElement>) => void;
   /** 朗读逐词高亮：当前正读到该词 */
   spoken?: boolean;
+  /** 答对波浪弹跳：≥0 时按该序号延迟入场（仅静态+正确时生效） */
+  wave?: number;
 };
 
 export function BlankSlot({
@@ -32,14 +36,38 @@ export function BlankSlot({
   onChange,
   onKeyDown,
   spoken,
+  wave = -1,
 }: BlankSlotProps) {
   const isChecked = phase === 'checked';
   const isRevealed = phase === 'revealed';
   const isStatic = isChecked || isRevealed;
   const isCorrect = isChecked && !!detail?.correct;
   const isAlternative = isCorrect && !!detail?.alternative;
+  // 答对（或已看答案）的词才参与波浪弹跳
+  const waving = wave >= 0 && isStatic && (isCorrect || isRevealed);
   const isWrong = isChecked && !!detail && !detail.correct;
   const width = Math.max(answer.length, typed.length, 2) + 0.8;
+
+  // 打字按键反馈：新字母落下 → 空格子轻轻弹一下；删除 → 缩一下
+  const slotRef = useRef<HTMLSpanElement | null>(null);
+  const prevTypedRef = useRef(typed);
+  useEffect(() => {
+    const prev = prevTypedRef.current;
+    prevTypedRef.current = typed;
+    if (isStatic || !slotRef.current || typed === prev) return;
+    const grew = typed.length > prev.length;
+    // 保留 Tailwind 的 -translate-y-0.5（激活时），避免动画期间跳位
+    const base = active ? 'translateY(-2px)' : 'translateY(0)';
+    const peak = grew ? 'scale(1.07)' : 'scale(0.97)';
+    slotRef.current.animate(
+      [
+        { transform: `${base} scale(1)` },
+        { transform: `${base} ${peak}`, offset: 0.45 },
+        { transform: `${base} scale(1)` },
+      ],
+      { duration: grew ? 170 : 120, easing: 'ease-out' }
+    );
+  }, [typed, isStatic, active]);
 
   let lineColor = '#8ED3F4';
   let highlight = 'bg-[#FFF6D6]';
@@ -71,7 +99,10 @@ export function BlankSlot({
 
   return (
     <span className="relative inline-flex items-center">
+      {/* D 手绘描线：答对后在词下「写」出一条手绘波浪对勾线 */}
+      <Squiggle active={waving} delay={(wave >= 0 ? wave : 0) * 0.06 + 0.12} />
       <span
+        ref={slotRef}
         className={`relative inline-flex h-[1.5em] items-center justify-center rounded-lg transition-all duration-150 ${
           active && !isStatic ? '-translate-y-0.5' : ''
         }`}
@@ -101,7 +132,8 @@ export function BlankSlot({
             data-lookup-word={answer}
             className={`relative z-10 flex h-full items-center justify-center rounded-md px-1 font-extrabold leading-none transition-colors ${
               spoken ? 'bg-cartoon-orange/70 text-white' : ''
-            }`}
+            } ${waving ? 'animate-wave-pop' : ''}`}
+            style={waving ? { animationDelay: `${wave * 60}ms` } : undefined}
             title={
               isAlternative && detail?.typed
                 ? `接受了近义替换：${detail.typed}`

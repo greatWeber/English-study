@@ -4,7 +4,7 @@
   "private": true,
   "description": "卡通趣味英语默写练习站 —— 填空 / 整句默写，按等级与场景分类，本地 SQLite 记录错题复习",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3456",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -12,7 +12,6 @@
     "build:dict": "node lib/build-dict.mjs"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.2",
     "better-sqlite3": "^9.4.0",
     "clsx": "^2.1.0",
     "ecc-universal": "^2.2.3",

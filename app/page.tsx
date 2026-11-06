@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, RefreshCw, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LEVELS, CATEGORIES, MODES } from '@/lib/constants';
-import { Mascot, BackgroundDecor, Confetti, KeyCap, StarDoodle } from '@/components/cartoon';
+import { Mascot, BackgroundDecor, KeyCap, StarDoodle } from '@/components/cartoon';
 import { OptionPill } from '@/components/optionPill';
 import { GlobeIcon } from '@/components/globeIcon';
 import { useHomePage } from '@/hooks/useHomePage';
@@ -255,8 +255,6 @@ export default function HomePage() {
 
             {/* 开始卡 */}
             <div className="ink-card relative overflow-hidden p-6 text-center md:p-8">
-              <Confetti run={1} active={hasData} />
-
               {!hasData ? (
                 <div className="relative z-10 flex flex-col items-center gap-3 py-2">
                   <span className="grid h-16 w-16 place-items-center rounded-2xl border-[3px] border-ink bg-lemon text-3xl shadow-[4px_4px_0_0_#2B2B45]">

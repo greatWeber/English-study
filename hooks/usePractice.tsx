@@ -114,12 +114,18 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   /* ---------------- 焦点 / 输入 ---------------- */
 
   const registerInput = useCallback((order: number, el: HTMLInputElement | null) => {
-    if (el) inputRefs.current.set(order, el);
-    else inputRefs.current.delete(order);
+    if (el) {
+      inputRefs.current.set(order, el);
+    } else {
+      // 换题转场时旧输入框延迟卸载：只清理已脱离文档的注册，别误删新输入框
+      const stored = inputRefs.current.get(order);
+      if (!stored || !stored.isConnected) inputRefs.current.delete(order);
+    }
   }, []);
 
   const registerDictationInput = useCallback((el: HTMLTextAreaElement | null) => {
-    dictationRef.current = el;
+    if (el) dictationRef.current = el;
+    else if (!dictationRef.current?.isConnected) dictationRef.current = null;
   }, []);
 
   const focusBlank = useCallback((order: number) => {
@@ -209,79 +215,6 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     }, 60);
   }, [exercise, isDictation, focusBlank, focusDictation]);
 
-  /**
-   * 近义替换复核：把「不精确匹配」的空交给本地 NLI 判定（app/api/judge）。
-   * 判定通过的标记为「可接受替换」，让 bike / bicycle 这类答案也算对。
-   */
-  const refineWithSemantics = useCallback(
-    async (details: CheckDetail[], sentence: Sentence): Promise<CheckDetail[]> => {
-      // 跳过：已判对、没写、像拼错的、词形错的（这些都该算错，不必问模型）
-      const candidates = details.filter(
-        (detail) =>
-          !detail.correct &&
-          !detail.typo &&
-          !detail.formError &&
-          !detail.missing &&
-          detail.typed.trim().length > 0,
-      );
-      if (candidates.length === 0 || !sentence.text) return details;
-
-      try {
-        const controller = new AbortController();
-        const timer = window.setTimeout(() => controller.abort(), 20000);
-        const response = await fetch('/api/judge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sentenceId: sentence.id,
-            sentence: sentence.text,
-            items: candidates.map((detail) => ({
-              order: detail.order,
-              expected: detail.expected,
-              typed: detail.typed,
-            })),
-          }),
-          signal: controller.signal,
-        });
-        window.clearTimeout(timer);
-
-        const data = (await response.json()) as {
-          ok?: boolean;
-          results?: Array<{ order: number; accept: boolean }>;
-        };
-        if (!data.ok || !Array.isArray(data.results)) return details;
-
-        const accepted = new Set(
-          data.results.filter((result) => result.accept).map((result) => result.order),
-        );
-        if (accepted.size === 0) return details;
-
-        let found = 0;
-        const next = details.map((detail) => {
-          if (!accepted.has(detail.order) || detail.correct) return detail;
-          found += 1;
-          return {
-            ...detail,
-            correct: true,
-            alternative: true,
-            missing: false,
-            marks: detail.typed.split('').map((ch) => ({ ch, ok: true })),
-            extra: [],
-          };
-        });
-
-        if (found > 0) {
-          setToast({ msg: `有 ${found} 处是近义替换，也算对哦 ✨`, type: 'ok' });
-        }
-        return next;
-      } catch {
-        // 复核失败不影响正常判分
-        return details;
-      }
-    },
-    [],
-  );
-
   const handleCheck = useCallback(async () => {
     if (!current || !exercise || phase !== 'typing' || checking) return;
 
@@ -309,9 +242,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
         details = checkBlanks(exercise, typedWords);
       }
 
-      // 本地近义复核（拼写变体已在 checkBlanks/checkDictation 内判对）
-      details = await refineWithSemantics(details, current);
-
+      // 精确匹配 + 拼写变体（checkBlanks/checkDictation 内已处理）
       const mistakes =
         details.filter((detail) => !detail.correct).length + extraWords.length;
       const overallCorrect = mistakes === 0;
@@ -370,7 +301,6 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     mode,
     focusBlank,
     focusDictation,
-    refineWithSemantics,
   ]);
 
   const handleBlankKeyDown = useCallback(

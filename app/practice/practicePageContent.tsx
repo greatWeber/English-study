@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BlankSlot } from "@/components/blankSlot";
-import { BackgroundDecor, Mascot, Confetti, KeyCap } from "@/components/cartoon";
+import { BackgroundDecor, Mascot, KeyCap, WinStamp, StarFlight, CountUp } from "@/components/cartoon";
 import { DictationBoard } from "@/components/dictationBoard";
 import { usePractice } from "@/hooks/usePractice";
 import { useSpeech } from "@/hooks/useSpeech";
 import { buildChunks } from "@/lib/utils";
+import { isSoundEnabled, playCorrectChime, setSoundEnabled } from "@/lib/sfx";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Star, Home, RotateCcw, Flag, Languages, Lightbulb, CheckCircle2, XCircleIcon, Eye, Volume2, Turtle } from "lucide-react";
+import { ArrowRight, Star, Home, RotateCcw, Flag, Languages, Lightbulb, CheckCircle2, XCircleIcon, Eye, Volume2, Turtle, VolumeX } from "lucide-react";
 import Link from "next/link";
 
 export function PracticePageContent({ searchParams }: { searchParams: URLSearchParams }) {
@@ -107,6 +108,55 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     }
     setSpeakRate(rate);
     speech.speak(current.text, rate);
+  };
+
+  /* ---------------- 庆祝动画 & 音效 ---------------- */
+
+  // 答对/测试都往 fxRun 上加一：驱动礼花/印章；starRun 驱动星星飞行
+  const cardRef = useRef<HTMLElement | null>(null);
+  const starCounterRef = useRef<HTMLDivElement | null>(null);
+  const [fxRun, setFxRun] = useState(0);
+  const [starRun, setStarRun] = useState(0); // >0 时星星在飞
+  const [starLandKey, setStarLandKey] = useState(0); // 星星落地：计分器弹跳 key
+  const [waveSeq, setWaveSeq] = useState(0); // 重放逐词波浪用的重挂载序号
+  const [soundOn, setSoundOn] = useState(true);
+
+  // 客户端读取音效开关偏好
+  useEffect(() => {
+    setSoundOn(isSoundEnabled());
+  }, []);
+
+  const playCelebration = () => {
+    setFxRun((n) => n + 1);
+    setStarRun((n) => n + 1);
+    if (isSoundEnabled()) playCorrectChime();
+  };
+
+  const prevCelebrate = useRef(0);
+  useEffect(() => {
+    if (celebrate > prevCelebrate.current) {
+      playCelebration();
+    }
+    prevCelebrate.current = celebrate;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [celebrate]);
+
+  // 测试按钮：整套重放（逐词波浪只在批改/看答案阶段可重放）
+  const playTestShow = () => {
+    playCelebration();
+    if (canHighlight) setWaveSeq((n) => n + 1);
+  };
+
+  const handleStarLanded = () => {
+    setStarRun(0);
+    setStarLandKey((n) => n + 1);
+  };
+
+  const toggleSound = () => {
+    setSoundOn((on) => {
+      setSoundEnabled(!on);
+      return !on;
+    });
   };
 
   /* ---------------- 加载 / 空状态 ---------------- */
@@ -225,7 +275,6 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             </div>
 
             <section className="ink-card relative overflow-hidden p-6 text-center md:p-10">
-              <Confetti run={1} active={attempts > 0} />
               <Mascot className="mx-auto h-28 w-28 animate-float" />
               <h2 className="mt-2 text-3xl font-extrabold md:text-4xl">
                 本轮通关啦 🎉
@@ -240,15 +289,21 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
 
               <div className="mx-auto mt-6 grid max-w-2xl grid-cols-3 gap-3">
                 {[
-                  { label: '答题次数', value: attempts, bg: 'bg-[#EEF6FF]' },
-                  { label: '全对次数', value: correctAttempts, bg: 'bg-cartoon-mint/60' },
-                  { label: '正确率', value: attempts > 0 ? `${accuracy}%` : '—', bg: 'bg-lemon/80' },
+                  { label: '答题次数', to: attempts, suffix: '', bg: 'bg-[#EEF6FF]' },
+                  { label: '全对次数', to: correctAttempts, suffix: '', bg: 'bg-cartoon-mint/60' },
+                  { label: '正确率', to: accuracy, suffix: '%', bg: 'bg-lemon/80' },
                 ].map((item) => (
                   <div
                     key={item.label}
                     className={`rounded-2xl border-[3px] border-ink ${item.bg} px-2 py-4 shadow-[3px_3px_0_0_#2B2B45]`}
                   >
-                    <div className="text-2xl font-black md:text-3xl">{item.value}</div>
+                    <div className="text-2xl font-black md:text-3xl">
+                      {attempts > 0 ? (
+                        <CountUp to={item.to} suffix={item.suffix} />
+                      ) : (
+                        '—'
+                      )}
+                    </div>
                     <div className="mt-1 text-[10px] font-extrabold text-ink/50 md:text-xs">
                       {item.label}
                     </div>
@@ -332,9 +387,25 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                 </span>
               </div>
 
-              <div className="hidden shrink-0 items-center gap-1 rounded-full border-[3px] border-ink bg-white px-3 py-1.5 text-xs font-extrabold shadow-[3px_3px_0_0_#2B2B45] sm:flex">
+              <motion.div
+                ref={starCounterRef}
+                key={`star-count-${starLandKey}`}
+                initial={starLandKey === 0 ? false : { scale: 1.6, rotate: -8 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 15 }}
+                className="hidden shrink-0 items-center gap-1 rounded-full border-[3px] border-ink bg-white px-3 py-1.5 text-xs font-extrabold shadow-[3px_3px_0_0_#2B2B45] sm:flex"
+              >
                 ⭐ {correctAttempts}
-              </div>
+              </motion.div>
+
+              <button
+                type="button"
+                onClick={toggleSound}
+                className="ink-btn ink-btn-white inline-flex px-2.5 py-1.5 text-[11px]"
+                title={soundOn ? '关闭音效' : '打开音效'}
+              >
+                {soundOn ? <Volume2 size={13} strokeWidth={3} /> : <VolumeX size={13} strokeWidth={3} />}
+              </button>
 
               <button
                 type="button"
@@ -357,8 +428,8 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             </div>
 
             {/* 句子填空主卡 */}
-            <section className="ink-card relative overflow-hidden">
-              <Confetti run={celebrate} active={allCorrect} />
+            <section ref={cardRef} className="ink-card relative overflow-hidden">
+              <WinStamp run={fxRun} />
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-b-[3px] border-ink bg-lemon px-4 py-2.5 md:px-6">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -401,6 +472,14 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               <div className="relative overflow-hidden bg-[#FFFDF7] px-3 py-9 md:px-10 md:py-12">
                 <div className="paper-dots absolute inset-0 opacity-40" />
 
+                <AnimatePresence mode="popLayout" initial={false}>
+                  <motion.div
+                    key={current?.id ?? 'empty'}
+                    initial={{ x: '58%', opacity: 0, scale: 0.97 }}
+                    animate={{ x: 0, opacity: 1, scale: 1 }}
+                    exit={{ x: '-58%', opacity: 0, scale: 0.97 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.9 }}
+                  >
                 {isDictation ? (
                   <DictationBoard
                     text={current?.text ?? ''}
@@ -416,6 +495,8 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     onChange={handleDictationChange}
                     onKeyDown={handleDictationKeyDown}
                     spokenIndex={canHighlight && speech.playing ? speech.wordIndex : -1}
+                    waveOn={canHighlight}
+                    waveSeq={waveSeq}
                   />
                 ) : (
                   <>
@@ -438,8 +519,16 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                               canHighlight &&
                               speech.playing &&
                               chunkWordIndex[index] === speech.wordIndex;
+                            // 答对波浪：批改/看答案后，正确的词按顺序弹跳
+                            const wave = canHighlight ? chunkWordIndex[index] : -1;
+                            // 入场：新题逐词错峰弹出（标点跟随后一个词的节奏）
+                            const enterDelay = Math.max(chunkWordIndex[index], index) * 40;
                             return (
-                              <span key={`chunk-${index}`}>
+                              <span
+                                key={`chunk-${index}-${waveSeq}`}
+                                className="animate-word-in"
+                                style={{ animationDelay: `${enterDelay}ms` }}
+                              >
                                 {chunk.space ? ' ' : null}
                                 <span className="inline-block align-middle">
                                   {chunk.blankOrder !== undefined ? (
@@ -457,12 +546,19 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                                       onChange={handleInputChange}
                                       onKeyDown={handleBlankKeyDown}
                                       spoken={spoken}
+                                      wave={wave}
                                     />
                                   ) : (
                                     <span
+                                      key={`plain-${index}-${phase}`}
                                       className={`whitespace-nowrap rounded-md transition-colors ${
                                         spoken ? 'bg-cartoon-orange/70 text-white' : ''
-                                      }`}
+                                      } ${wave >= 0 ? 'inline-block animate-wave-pop' : ''}`}
+                                      style={
+                                        wave >= 0
+                                          ? { animationDelay: `${wave * 60}ms` }
+                                          : undefined
+                                      }
                                     >
                                       {chunk.wordText}
                                       <span className={spoken ? 'text-white/80' : 'text-ink/40'}>
@@ -492,6 +588,8 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     </AnimatePresence>
                   </>
                 )}
+                  </motion.div>
+                </AnimatePresence>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t-[3px] border-dashed border-ink/15 bg-white px-4 py-2.5 md:px-6">
@@ -929,6 +1027,24 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 全屏庆祝层：星星飞向计分器（fxRun 只在答对/测试时递增） */}
+      <StarFlight
+        run={starRun}
+        fromRef={cardRef}
+        toRef={starCounterRef}
+        onLanded={handleStarLanded}
+      />
+
+      {/* 开发用：动画测试按钮（答对没感觉？点它连放） */}
+      <button
+        type="button"
+        onClick={playTestShow}
+        title="重放整套庆祝动画（盖章/星星/音效；批改后还可重放逐词波浪）"
+        className="fixed bottom-5 right-5 z-[97] inline-flex items-center gap-1.5 rounded-full border-[3px] border-ink bg-lemon px-4 py-2 text-xs font-extrabold text-ink shadow-[4px_4px_0_0_#2B2B45] transition-transform hover:-translate-y-0.5 hover:shadow-[4px_6px_0_0_#2B2B45] active:translate-y-0.5 active:shadow-[2px_2px_0_0_#2B2B45]"
+      >
+        🎉 测试动画
+      </button>
     </div>
   );
 }

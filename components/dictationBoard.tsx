@@ -24,6 +24,10 @@ type DictationBoardProps = {
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   /** 朗读逐词高亮：当前正读到第几个词（-1 无） */
   spokenIndex?: number;
+  /** 答对波浪弹跳开关（批改后打开，正确的词逐个弹跳） */
+  waveOn?: boolean;
+  /** 波浪重放序号：变化时正确的词重新弹跳（测试按钮用） */
+  waveSeq?: number;
 };
 
 export function DictationBoard({
@@ -40,6 +44,8 @@ export function DictationBoard({
   onChange,
   onKeyDown,
   spokenIndex = -1,
+  waveOn = false,
+  waveSeq = 0,
 }: DictationBoardProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const wordCount = countDictationWords(typed);
@@ -140,14 +146,20 @@ export function DictationBoard({
             const detail = detailByOrder.get(part.wordIndex ?? -1);
             const ok = phase === 'revealed' || !detail || detail.correct;
             const spoken = part.wordIndex !== undefined && part.wordIndex === spokenIndex;
+            const waving = waveOn && ok && part.wordIndex !== undefined;
             return (
               <span
-                key={`part-${index}`}
-                className={`rounded-md transition-colors ${
+                key={`part-${index}-${phase}-${waveSeq}`}
+                className={`inline-block rounded-md transition-colors ${
                   ok
                     ? 'text-green-700'
                     : 'text-red-500 underline decoration-red-300 decoration-2 underline-offset-4'
-                } ${spoken ? 'bg-cartoon-orange/70 !text-white' : ''}`}
+                } ${spoken ? 'bg-cartoon-orange/70 !text-white' : ''} ${
+                  waving ? 'animate-wave-pop' : ''
+                }`}
+                style={
+                  waving ? { animationDelay: `${(part.wordIndex ?? 0) * 60}ms` } : undefined
+                }
               >
                 {part.text}
               </span>

@@ -46,6 +46,9 @@ module.exports = {
         'bounce-soft': 'bounceSoft 2s infinite',
         'float': 'float 3s ease-in-out infinite',
         'pop-in': 'popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'wave-pop': 'wavePop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards',
+        'word-in': 'wordIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) backwards',
+        'key-pop': 'keyPop 0.16s ease-out',
         'shake': 'shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97)',
         'wiggle': 'wiggle 1.4s ease-in-out infinite',
         'dash': 'dash 0.8s linear infinite',
@@ -64,6 +67,20 @@ module.exports = {
         popIn: {
           '0%': { transform: 'scale(0.85)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        wavePop: {
+          '0%': { transform: 'scale(1)' },
+          '40%': { transform: 'scale(1.28) rotate(-3deg)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        wordIn: {
+          '0%': { transform: 'translateY(10px) scale(0.6)', opacity: '0' },
+          '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+        },
+        keyPop: {
+          '0%': { transform: 'scale(1)' },
+          '45%': { transform: 'scale(1.45) translateY(-2px)' },
+          '100%': { transform: 'scale(1)' },
         },
         shake: {
           '0%, 100%': { transform: 'translateX(0)' },

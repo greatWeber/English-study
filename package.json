@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "import:data": "node lib/import-sentences.mjs",
-    "build:dict": "node lib/build-dict.mjs"
+    "build:dict": "node lib/build-dict.mjs",
+    "build:words": "node lib/build-wordlist.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.0",

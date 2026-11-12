@@ -46,7 +46,7 @@ module.exports = {
         'bounce-soft': 'bounceSoft 2s infinite',
         'float': 'float 3s ease-in-out infinite',
         'pop-in': 'popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'wave-pop': 'wavePop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards',
+        'wave-pop': 'wavePop 0.62s cubic-bezier(0.34, 1.56, 0.64, 1) backwards',
         'word-in': 'wordIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) backwards',
         'key-pop': 'keyPop 0.16s ease-out',
         'shake': 'shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97)',
@@ -68,10 +68,14 @@ module.exports = {
           '0%': { transform: 'scale(0.85)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
+        // 答对逐词波浪：先「顿」一下压扁预备，再蹦起来并轻微回弹；
+        // 同步亮起薄荷绿底色再褪掉 → 形成一道扫过全句的高亮波
         wavePop: {
-          '0%': { transform: 'scale(1)' },
-          '40%': { transform: 'scale(1.28) rotate(-3deg)' },
-          '100%': { transform: 'scale(1)' },
+          '0%': { transform: 'translateY(0) scale(1, 1)', backgroundColor: 'rgba(167, 243, 208, 0)' },
+          '22%': { transform: 'translateY(3px) scale(1.06, 0.9)', backgroundColor: 'rgba(167, 243, 208, 0.45)' },
+          '52%': { transform: 'translateY(-13px) scale(0.95, 1.14)', backgroundColor: 'rgba(167, 243, 208, 0.6)' },
+          '76%': { transform: 'translateY(1px) scale(1.04, 0.97)', backgroundColor: 'rgba(167, 243, 208, 0.3)' },
+          '100%': { transform: 'translateY(0) scale(1, 1)', backgroundColor: 'rgba(167, 243, 208, 0)' },
         },
         wordIn: {
           '0%': { transform: 'translateY(10px) scale(0.6)', opacity: '0' },

@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, RefreshCw, Star, Zap } from 'lucide-react';
+import { ArrowRight, BookOpen, RefreshCw, Star, SpellCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { LEVELS, CATEGORIES, MODES } from '@/lib/constants';
 import { Mascot, KeyCap, StarDoodle } from '@/components/cartoon';
 import { BackgroundDecor } from '@/components/interactiveBackground';
 import { OptionPill } from '@/components/optionPill';
 import { GlobeIcon } from '@/components/globeIcon';
-import { useHomePage } from '@/hooks/useHomePage';
+import { useHomePage, type ContentKind } from '@/hooks/useHomePage';
 
 
 
@@ -23,22 +22,43 @@ const LEVEL_ACTIVE: Record<string, string> = {
   C2: 'bg-[#F9A8D4]',
 };
 
+/* 每轮词数选项 */
+const COUNTS = ['10', '20', '30'];
+
+/* 默写内容两种选择的元信息 */
+const CONTENT_META: Record<
+  ContentKind,
+  { icon: 'word' | 'globe'; title: string; desc: string; badge?: string }
+> = {
+  word: {
+    icon: 'word',
+    title: '单词默写',
+    desc: '按 CEFR 等级抽词，看中文和音标写单词',
+  },
+  sentence: {
+    icon: 'globe',
+    title: 'Tatoeba 例句默写',
+    desc: '真实生活例句，填空 / 整句默写',
+  },
+};
+
 export default function HomePage() {
-  
+
   const {
-    datasets,
     loading,
-    selectedDataset,
+    content,
     level,
     category,
     mode,
-    setDatasets,
-    setLoading,
-    setSelectedDataset,
+    count,
+    sentenceDataset,
+    wordBank,
+    setContent,
     setLevel,
     setCategory,
     setMode,
-    handleStart
+    setCount,
+    handleStart,
   } = useHomePage();
 
   if (loading) {
@@ -55,8 +75,7 @@ export default function HomePage() {
     );
   }
 
-  const hasData = datasets.some((d) => Number(d.sentence_count) > 0);
-  const selectedDatasetName = datasets.find((d) => d.id === selectedDataset)?.name ?? '—';
+  const hasSentenceData = Number(sentenceDataset?.sentence_count ?? 0) > 0;
   const categoryMeta = CATEGORIES.find((c) => c.id === category);
   const modeLabel = MODES.find((m) => m.id === mode)?.label ?? '填空题';
 
@@ -95,7 +114,7 @@ export default function HomePage() {
         >
           <span className="ink-pill border-ink bg-white shadow-[3px_3px_0_0_#2B2B45]">
             <BookOpen size={14} strokeWidth={3} />
-            按等级 × 场景挑题
+            单词 × 例句 按等级开练
           </span>
           <h1 className="mx-auto mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight md:text-6xl">
             Dictation{' '}
@@ -105,7 +124,7 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm font-bold text-ink/55 md:text-base">
-            键盘填空 / 整句默写双模式，挑好语料库、等级与场景就能开练，错题自动进入复习本 ✏️
+            选「单词默写」刷词汇量，选「例句默写」练真实句子，错题自动进入复习本 ✏️
           </p>
         </motion.div>
         <Mascot className="mx-auto mt-6 h-28 w-28 animate-float md:h-32 md:w-32" />
@@ -114,23 +133,24 @@ export default function HomePage() {
       {/* 主体 */}
       <main className="relative z-10 mx-auto w-full max-w-5xl px-4 pb-16 md:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* 语料库 */}
+          {/* 默写内容 */}
           <section className="lg:col-span-4">
             <div className="mb-3 flex items-center gap-2">
               <span className="grid h-7 w-7 place-items-center rounded-lg border-2 border-ink bg-lemon text-sm shadow-[2px_2px_0_0_#2B2B45]">
                 📚
               </span>
-              <h2 className="text-sm font-extrabold">选择语料库</h2>
+              <h2 className="text-sm font-extrabold">默写内容</h2>
             </div>
 
             <div className="space-y-3">
-              {datasets.map((ds) => {
-                const active = selectedDataset === ds.id;
+              {(Object.keys(CONTENT_META) as ContentKind[]).map((key) => {
+                const meta = CONTENT_META[key];
+                const active = content === key;
                 return (
                   <button
-                    key={ds.id}
+                    key={key}
                     type="button"
-                    onClick={() => setSelectedDataset(ds.id)}
+                    onClick={() => setContent(key)}
                     aria-pressed={active}
                     className={`group relative flex w-full items-center gap-3 rounded-2xl border-[3px] border-ink p-4 text-left transition-all duration-100 ${
                       active
@@ -143,25 +163,34 @@ export default function HomePage() {
                         active ? 'bg-white' : 'bg-cream'
                       }`}
                     >
-                      {ds.source === 'tatoeba' ? (
+                      {meta.icon === 'globe' ? (
                         <GlobeIcon size={20} strokeWidth={2.4} />
                       ) : (
-                        <Zap size={20} strokeWidth={2.6} />
+                        <SpellCheck size={20} strokeWidth={2.6} />
                       )}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-extrabold">{ds.name}</span>
+                      <span className="block truncate text-sm font-extrabold">{meta.title}</span>
                       <span className="mt-0.5 block truncate text-[11px] font-bold text-ink/45">
-                        {ds.description || '精选例句'}
+                        {meta.desc}
                       </span>
                     </span>
-                    {ds.sentence_count != null && (
+                    {key === 'sentence' && sentenceDataset?.sentence_count != null && (
                       <span
                         className={`ink-pill shrink-0 py-0.5 text-[10px] ${
                           active ? 'bg-white' : 'bg-cream'
                         }`}
                       >
-                        {ds.sentence_count} 题
+                        {sentenceDataset.sentence_count} 题
+                      </span>
+                    )}
+                    {key === 'word' && wordBank != null && (
+                      <span
+                        className={`ink-pill shrink-0 py-0.5 text-[10px] ${
+                          active ? 'bg-white' : 'bg-cream'
+                        }`}
+                      >
+                        {wordBank} 词
                       </span>
                     )}
                     {active && (
@@ -212,51 +241,75 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* 场景 */}
-                <div>
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
-                    场景
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <OptionPill active={category === 'all'} onClick={() => setCategory('all')}>
-                      全部
-                    </OptionPill>
-                    {CATEGORIES.map((c) => (
-                      <OptionPill
-                        key={c.id}
-                        active={category === c.id}
-                        onClick={() => setCategory(c.id)}
-                      >
-                        {c.icon} {c.label}
-                      </OptionPill>
-                    ))}
+                {/* 每轮词数（仅单词默写） */}
+                {content === 'word' && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
+                      每轮词数
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {COUNTS.map((c) => (
+                        <OptionPill
+                          key={c}
+                          active={count === c}
+                          activeClass="bg-cartoon-mint"
+                          onClick={() => setCount(c)}
+                        >
+                          {c} 个
+                        </OptionPill>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* 模式 */}
-                <div>
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
-                    模式
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {MODES.map((m) => (
-                      <OptionPill
-                        key={m.id}
-                        active={mode === m.id}
-                        activeClass={m.id === 'fill' ? 'bg-cloud' : 'bg-grape'}
-                        onClick={() => setMode(m.id)}
-                      >
-                        {m.label}
-                      </OptionPill>
-                    ))}
-                  </div>
-                </div>
+                {/* 场景 + 模式（仅例句默写） */}
+                {content === 'sentence' && (
+                  <>
+                    <div>
+                      <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
+                        场景
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <OptionPill active={category === 'all'} onClick={() => setCategory('all')}>
+                          全部
+                        </OptionPill>
+                        {CATEGORIES.map((c) => (
+                          <OptionPill
+                            key={c.id}
+                            active={category === c.id}
+                            onClick={() => setCategory(c.id)}
+                          >
+                            {c.icon} {c.label}
+                          </OptionPill>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-[11px] font-black uppercase tracking-wider text-ink/40">
+                        模式
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {MODES.map((m) => (
+                          <OptionPill
+                            key={m.id}
+                            active={mode === m.id}
+                            activeClass={m.id === 'fill' ? 'bg-cloud' : 'bg-grape'}
+                            onClick={() => setMode(m.id)}
+                          >
+                            {m.label}
+                          </OptionPill>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             {/* 开始卡 */}
             <div className="ink-card relative overflow-hidden p-6 text-center md:p-8">
-              {!hasData ? (
+              {content === 'sentence' && !hasSentenceData ? (
                 <div className="relative z-10 flex flex-col items-center gap-3 py-2">
                   <span className="grid h-16 w-16 place-items-center rounded-2xl border-[3px] border-ink bg-lemon text-3xl shadow-[4px_4px_0_0_#2B2B45]">
                     📭
@@ -278,31 +331,45 @@ export default function HomePage() {
                   </p>
 
                   <div className="mx-auto mt-4 flex max-w-lg flex-wrap items-center justify-center gap-2">
-                    <span className="ink-pill bg-cream py-1 text-[11px]">📚 {selectedDatasetName}</span>
-                    <span className="ink-pill bg-cream py-1 text-[11px]">
-                      🎯 {level === 'all' ? '全部等级' : level}
-                    </span>
-                    <span className="ink-pill bg-cream py-1 text-[11px]">
-                      {categoryMeta ? `${categoryMeta.icon} ${categoryMeta.label}` : '🌐 全部场景'}
-                    </span>
-                    <span className="ink-pill bg-cream py-1 text-[11px]">✏️ {modeLabel}</span>
+                    {content === 'word' ? (
+                      <>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">📝 单词默写</span>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">
+                          🎯 {level === 'all' ? '全部等级' : level}
+                        </span>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">🔢 每轮 {count} 词</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">
+                          🌍 {sentenceDataset?.name ?? '—'}
+                        </span>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">
+                          🎯 {level === 'all' ? '全部等级' : level}
+                        </span>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">
+                          {categoryMeta ? `${categoryMeta.icon} ${categoryMeta.label}` : '🌐 全部场景'}
+                        </span>
+                        <span className="ink-pill bg-cream py-1 text-[11px]">✏️ {modeLabel}</span>
+                      </>
+                    )}
                   </div>
 
                   <button
                     type="button"
                     onClick={handleStart}
-                    disabled={!selectedDataset}
+                    disabled={content === 'sentence' && !sentenceDataset}
                     className="ink-btn ink-btn-primary mt-6 w-full py-4 text-base lg:w-auto lg:px-10"
                   >
                     开始练习 <ArrowRight size={20} strokeWidth={3} />
                   </button>
 
                   <p className="mt-4 flex flex-wrap items-center justify-center gap-1.5 text-[11px] font-bold text-ink/40">
-                    <KeyCap>空格</KeyCap> 跳格
-                    <span className="text-ink/20">·</span>
-                    <KeyCap>Enter</KeyCap> 判分
+                    <KeyCap>Enter</KeyCap> 检查
                     <span className="text-ink/20">·</span>
                     <KeyCap>⌘Enter</KeyCap> 看答案
+                    <span className="text-ink/20">·</span>
+                    <KeyCap>Esc</KeyCap> 重写
                   </p>
                 </div>
               )}

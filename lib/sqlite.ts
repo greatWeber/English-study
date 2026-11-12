@@ -61,6 +61,16 @@ db.exec(`
   );
 
   -- 近义替换复核缓存：同一个空 + 同一个学生答案只推理一次
+  CREATE TABLE IF NOT EXISTS word_records (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    word       TEXT NOT NULL,
+    typed      TEXT NOT NULL DEFAULT '',
+    correct    INTEGER NOT NULL DEFAULT 0,  -- 严格正确
+    lenient    INTEGER NOT NULL DEFAULT 0,  -- 拼写变体/typo（算半对）
+    time_spent INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS answer_equivalence (
     sentence_id TEXT NOT NULL,
     blank_order INTEGER NOT NULL,
@@ -364,6 +374,59 @@ export function getDictEntry(word: string) {
         inf_label: string;
       }
     | undefined;
+}
+
+/** 批量保存单词默写作答记录，返回写入条数 */
+export function saveWordRecords(
+  items: Array<{ word: string; typed: string; correct: boolean; lenient: boolean; timeSpent: number }>
+) {
+  const stmt = db.prepare(
+    `INSERT INTO word_records (word, typed, correct, lenient, time_spent) VALUES (?, ?, ?, ?, ?)`
+  );
+  const run = db.transaction(() => {
+    let n = 0;
+    for (const it of items) {
+      if (!it.word) continue;
+      stmt.run(it.word, it.typed, it.correct ? 1 : 0, it.lenient ? 1 : 0, it.timeSpent);
+      n += 1;
+    }
+    return n;
+  });
+  return run();
+}
+
+/** 单词默写抽题：按等级从 word_cefr 随机取 N 词，联 word_dict 带出音标/释义 */
+/** 词库总量（可按等级过滤），首页徽标用 */
+export function countWordBank(level: string): number {
+  const row =
+    level && level !== 'all'
+      ? db.prepare('SELECT COUNT(*) AS n FROM word_cefr WHERE level = ?').get(level)
+      : db.prepare('SELECT COUNT(*) AS n FROM word_cefr').get();
+  return Number((row as { n: number }).n) || 0;
+}
+
+export function getWordQuiz(level: string, count: number) {
+  const where = level && level !== 'all' ? 'WHERE w.level = ?' : '';
+  const params: unknown[] = level && level !== 'all' ? [level] : [];
+  const rows = db
+    .prepare(
+      `SELECT w.word, w.level, w.pos, d.phonetic, d.translation, d.inf_of, d.inf_label
+         FROM word_cefr w
+         JOIN word_dict d ON d.word = w.word
+        ${where}
+        ORDER BY RANDOM()
+        LIMIT ?`
+    )
+    .all(...params, count) as Array<{
+    word: string;
+    level: string;
+    pos: string;
+    phonetic: string;
+    translation: string;
+    inf_of: string;
+    inf_label: string;
+  }>;
+  return rows;
 }
 
 /** 关闭数据库（用于测试/退出） */

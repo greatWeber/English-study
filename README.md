@@ -10,6 +10,7 @@
 
 | 功能 | 说明 |
 |------|------|
+| **单词默写** | 按 CEFR 等级从 8400+ 词库随机抽词，看中文释义 + 音标写单词；支持逐字母批改、有道真人发音、拼写变体宽容判分（colour/color）、错词当场重练 |
 | **双练习模式** | 填空题（优先使用语料库挖空词） / 整句默写（实词逐个敲） |
 | **等级 × 场景** | CEFR A1–C2 六档 + 日常/旅行/美食/购物/学习/工作/健康/社交 8 场景 |
 | **实时判分** | 回车即判：全对绿✅、写错红字母+显示你写的、漏写红虚线框、多写灰划掉 |
@@ -40,7 +41,10 @@ npm run import:data
 # 4. 构建离线划词词典（只需跑一次，需联网下载 ECDICT）
 npm run build:dict
 
-# 5. 启动开发服务器
+# 5. 构建单词默写词库（只需跑一次，依赖上一步的词典 + 已入库的 CEFR 词表 CSV）
+npm run build:words
+
+# 6. 启动开发服务器
 npm run dev
 # → 打开 http://localhost:3000
 ```
@@ -59,20 +63,29 @@ english-dictation/
 │   │   ├── sentences/route.ts     # 按条件抽题
 │   │   ├── records/route.ts       # 保存作答记录
 │   │   ├── stats/route.ts         # 统计/错题复习
-│   │   └── dict/route.ts          # 划词词典查询（音标/释义）
+│   │   ├── dict/route.ts          # 划词词典查询（音标/释义）
+│   │   ├── tts/route.ts           # 神经网络朗读（Edge TTS + 缓存 + 逐词时间戳）
+│   │   └── words/route.ts         # 单词默写：抽题 / 提交判分
 │   ├── globals.css                # Tailwind + 卡通主题
 │   ├── layout.tsx                 # 根布局（挂全局划词词典 Provider）
-│   ├── page.tsx                   # 🏠 首页：选语料库/等级/场景/模式
-│   ├── practice/page.tsx          # ✏️ 练习页：填空/默写核心交互
+│   ├── page.tsx                   # 🏠 首页：选默写内容/等级/场景/模式
+│   ├── practice/page.tsx          # ✏️ 句子默写页：填空/整句核心交互
+│   ├── word/page.tsx              # 📝 单词默写页：看中文+音标写单词
 │   └── review/page.tsx            # 🔥 复习页：错题集中练
 ├── components/                    # (可拆分的共享组件)
-│   └── wordTip.tsx                # 💬 划词气泡：选词显示音标+中文释义
+│   ├── wordTip.tsx                # 💬 划词气泡：选词显示音标+中文释义
+│   └── interactiveBackground.tsx  # 🎨 可交互背景（磁吸点阵/橡皮擦揭示/纯点阵）
+├── hooks/
+│   ├── usePractice.tsx            # 句子默写回合引擎
+│   ├── useWordPractice.tsx        # 单词默写回合引擎
+│   └── useSpeech.ts               # 朗读（服务器神经网络语音 + 浏览器兜底）
 ├── lib/
 │   ├── sqlite.ts                  # 数据库连接 & CURD
 │   ├── constants.ts               # 等级/场景/模式定义
 │   ├── dictionary.ts              # 查词逻辑（词形还原兜底）
 │   ├── import-sentences.mjs       # 一次性导入旧版 JSON 语料
-│   └── build-dict.mjs             # 构建 word_dict 离线词典（ECDICT）
+│   ├── build-dict.mjs             # 构建 word_dict 离线词典（ECDICT）
+│   └── build-wordlist.mjs         # 构建 word_cefr 单词默写词库
 ├── legacy/                        # 旧版单文件版（已归档）
 ├── data/dictation.db              # SQLite 数据库（运行时生成）
 ├── tailwind.config.ts             # 卡通色板、动画、圆角
@@ -87,11 +100,16 @@ english-dictation/
 
 ```mermaid
 flowchart LR
-  A[首页 /] -->|选择语料库、等级、场景、模式| B[练习页 /practice]
-  B -->|做题、判分、看答案| C{全对?}
-  C -->|是| D[下一题 / 自动下一题]
-  C -->|否| E[重做 / 显示答案]
+  A[首页 /] -->|单词默写：等级+词数| W[单词默写页 /word]
+  A -->|句子默写：等级/场景/模式| B[句子默写页 /practice]
+  W -->|看中文+音标写单词| C1{写对?}
+  C1 -->|是| D[自动下一词]
+  C1 -->|否| E[逐字母批改 / 重做 / 看答案]
   E --> D
+  B -->|做题、判分、看答案| C{全对?}
+  C -->|是| D2[下一题 / 自动下一题]
+  C -->|否| E2[重做 / 显示答案]
+  E2 --> D2
   B -->|点击「错题复习」| F[复习页 /review]
   F -->|点击某句| B
 ```
@@ -130,6 +148,12 @@ sentence_stats(sentence_id, total_attempts, correct_count, last_attempt_at, next
 
 -- 划词离线词典（npm run build:dict 生成，约 8.8 万词）
 word_dict(word PK, phonetic, translation, definition, pos, collins, oxford, tag, bnc, frq, inf_of, inf_label)
+
+-- 单词默写词库（npm run build:words 生成，约 8400 词，CEFR 六级）
+word_cefr(word PK, level, pos)
+
+-- 单词默写作答记录
+word_records(id, word, typed, correct, lenient, time_spent, created_at)
 ```
 
 **复习调度规则**（简化版）：
@@ -167,6 +191,9 @@ npm run import:data
 
 # 重建划词词典（word_dict 表，数据源 ECDICT，需联网）
 npm run build:dict
+
+# 重建单词默写词库（word_cefr 表，依赖 word_dict + CEFR 词表 CSV）
+npm run build:words
 
 # 检查类型
 npx tsc --noEmit

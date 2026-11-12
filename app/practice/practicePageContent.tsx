@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { BlankSlot } from "@/components/blankSlot";
-import { Mascot, KeyCap, WinStamp, StarFlight, CountUp } from "@/components/cartoon";
+import { Mascot, KeyCap, WinStamp, StarFlight, CountUp, Confetti } from "@/components/cartoon";
 import { BackgroundDecor } from "@/components/interactiveBackground";
 import { DictationBoard } from "@/components/dictationBoard";
 import { usePractice } from "@/hooks/usePractice";
 import { useSpeech } from "@/hooks/useSpeech";
 import { buildChunks } from "@/lib/utils";
 import { isSoundEnabled, playCorrectChime, setSoundEnabled } from "@/lib/sfx";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { ArrowRight, Star, Home, RotateCcw, Flag, Languages, Lightbulb, CheckCircle2, XCircleIcon, Eye, Volume2, Turtle, VolumeX } from "lucide-react";
 import Link from "next/link";
 
@@ -113,7 +113,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
 
   /* ---------------- 庆祝动画 & 音效 ---------------- */
 
-  // 答对/测试都往 fxRun 上加一：驱动礼花/印章；starRun 驱动星星飞行
+  // 答对/测试都往 fxRun 上加一：驱动礼花/印章/抖卡；starRun 驱动星星飞行
   const cardRef = useRef<HTMLElement | null>(null);
   const starCounterRef = useRef<HTMLDivElement | null>(null);
   const [fxRun, setFxRun] = useState(0);
@@ -121,15 +121,28 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
   const [starLandKey, setStarLandKey] = useState(0); // 星星落地：计分器弹跳 key
   const [waveSeq, setWaveSeq] = useState(0); // 重放逐词波浪用的重挂载序号
   const [soundOn, setSoundOn] = useState(true);
+  // 主卡震动：用 controls 播放，避免 key 变化重挂载整个卡片（会丢输入状态、重放入场动画）
+  const cardShake = useAnimationControls();
 
   // 客户端读取音效开关偏好
   useEffect(() => {
     setSoundOn(isSoundEnabled());
   }, []);
 
+  /**
+   * 一次答对的完整演出，全部按时间轴错峰：
+   *   0ms    卡片抖一下 + 盖章砸下 + 礼花从两角喷出
+   *   120ms  星星从卡面起飞（等盖章有存在感之后再走）
+   *   840ms  星星落进计分器，计分器弹一下
+   */
   const playCelebration = () => {
     setFxRun((n) => n + 1);
-    setStarRun((n) => n + 1);
+    cardShake.start({
+      x: [0, -6, 6, -4, 3, -1, 0],
+      y: [0, 4, -4, 3, -2, 1, 0],
+      transition: { duration: 0.45, ease: 'easeOut' },
+    });
+    window.setTimeout(() => setStarRun((n) => n + 1), 120);
     if (isSoundEnabled()) playCorrectChime();
   };
 
@@ -428,7 +441,10 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               </div>
             </div>
 
-            {/* 句子填空主卡 */}
+            {/* 句子填空主卡：答对时整张卡「咚」地抖一下再稳住（用 controls 触发，不重挂载） */}
+            <motion.div
+              animate={cardShake}
+            >
             <section ref={cardRef} className="ink-card relative overflow-hidden">
               <WinStamp run={fxRun} />
 
@@ -552,9 +568,13 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                                   ) : (
                                     <span
                                       key={`plain-${index}-${phase}`}
-                                      className={`whitespace-nowrap rounded-md transition-colors ${
+                                      className={`whitespace-nowrap rounded-md ${
                                         spoken ? 'bg-cartoon-orange/70 text-white' : ''
-                                      } ${wave >= 0 ? 'inline-block animate-wave-pop' : ''}`}
+                                      } ${
+                                        wave >= 0
+                                          ? 'inline-block animate-wave-pop'
+                                          : 'transition-colors'
+                                      }`}
                                       style={
                                         wave >= 0
                                           ? { animationDelay: `${wave * 60}ms` }
@@ -665,50 +685,106 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                 </p>
               </div>
             </section>
+            </motion.div>
+
+            {/* 全屏礼花：答对瞬间从屏幕两角喷出，飞出屏幕后自行卸载 */}
+            <Confetti run={fxRun} />
 
             {/* 判分反馈 */}
             <AnimatePresence initial={false}>
               {phase === 'checked' && (
                 <motion.div
                   key="feedback"
-                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  /* 入场要「弹」出来而不是「浮」上来：弹簧 + 轻微过冲，200ms 内到位 */
+                  initial={{ opacity: 0, y: 14, scale: 0.94 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className={`mt-4 flex items-center gap-3 rounded-2xl border-[3px] border-ink px-4 py-3 shadow-[4px_4px_0_0_#2B2B45] ${
+                  exit={{ opacity: 0, y: -6, scale: 0.98, transition: { duration: 0.16 } }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 26, mass: 0.7 }}
+                  className={`mt-4 overflow-hidden rounded-2xl border-[3px] border-ink shadow-[5px_5px_0_0_#2B2B45] ${
                     allCorrect ? 'bg-cartoon-mint' : 'bg-[#FFE3E3]'
                   }`}
                   role="status"
                   aria-live="polite"
                 >
-                  <span className="text-3xl">{allCorrect ? '🎉' : '💪'}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold md:text-base">
-                      {allCorrect
-                        ? alternativeDetails.length > 0
-                          ? `全对！其中 ${alternativeDetails.length} 处是近义替换（也算对）`
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <motion.span
+                      className="text-3xl"
+                      initial={{ scale: 0.3, rotate: -18 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 14, delay: 0.06 }}
+                    >
+                      {allCorrect ? '🎉' : '💪'}
+                    </motion.span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold md:text-base">
+                        {allCorrect
+                          ? alternativeDetails.length > 0
+                            ? `全对！其中 ${alternativeDetails.length} 处是近义替换（也算对）`
+                            : isDictation
+                              ? '整句全对！这一句写得漂亮'
+                              : '全对！这一题漂亮拿下'
                           : isDictation
-                            ? '整句全对！这一句写得漂亮'
-                            : '全对！这一题漂亮拿下'
-                        : isDictation
-                          ? `还有 ${mistakes} 处需要订正`
-                          : `还差一点点，有 ${mistakes} 个空需要订正`}
-                    </p>
-                    <p className="text-[11px] font-bold text-ink/55 md:text-xs">
-                      {allCorrect
-                        ? '按 Enter 直接进入下一题'
-                        : isDictation
-                          ? '看看下面的逐词对照，按 Enter 清空再试一次'
-                          : '看看下面的批改小报告，按 Enter 清空再试一次'}
-                    </p>
+                            ? `还有 ${mistakes} 处需要订正`
+                            : `还差一点点，有 ${mistakes} 个空需要订正`}
+                      </p>
+                      <p className="text-[11px] font-bold text-ink/55 md:text-xs">
+                        {allCorrect
+                          ? '按 Enter 直接进入下一题'
+                          : isDictation
+                            ? '看看下面的逐词对照，按 Enter 清空再试一次'
+                            : '看看下面的批改小报告，按 Enter 清空再试一次'}
+                      </p>
+                    </div>
+                    {allCorrect ? (
+                      <motion.span
+                        className="ml-auto shrink-0"
+                        initial={{ scale: 0.4, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 16, delay: 0.12 }}
+                      >
+                        <CheckCircle2 size={30} strokeWidth={2.5} className="text-green-600" />
+                      </motion.span>
+                    ) : (
+                      <XCircleIcon className="ml-auto h-7 w-7 shrink-0 text-red-500" />
+                    )}
                   </div>
-                  {allCorrect ? (
-                    <CheckCircle2
-                      size={30}
-                      strokeWidth={2.5}
-                      className="ml-auto shrink-0 text-green-600"
-                    />
-                  ) : (
-                    <XCircleIcon className="ml-auto h-7 w-7 shrink-0 text-red-500" />
+
+                  {/* 每个空的得分点：一眼看出哪几个空拿下了，比一句「还差 N 个」直观得多 */}
+                  {totalUnits > 1 && (
+                    <div className="flex flex-wrap items-center gap-1.5 border-t-2 border-dashed border-ink/15 px-4 py-2">
+                      {checkDetails.map((detail, index) => (
+                        <motion.span
+                          key={detail.order}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 520,
+                            damping: 18,
+                            delay: 0.1 + index * 0.045,
+                          }}
+                          className={`grid h-5 w-5 place-items-center rounded-full border-2 border-ink text-[10px] font-black text-white shadow-[1px_1px_0_0_#2B2B45] ${
+                            detail.correct
+                              ? detail.alternative
+                                ? 'bg-sky-400'
+                                : 'bg-green-400'
+                              : 'bg-red-400'
+                          }`}
+                          title={
+                            detail.correct
+                              ? `${detail.expected} ✓`
+                              : `${detail.typed || '（空着）'} → ${detail.expected}`
+                          }
+                        >
+                          {detail.correct ? (detail.alternative ? '≈' : '✓') : '✕'}
+                        </motion.span>
+                      ))}
+                      {dictationExtras.length > 0 && (
+                        <span className="ink-pill border-red-200 bg-white py-0.5 text-[10px] text-red-500">
+                          多写 {dictationExtras.length}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </motion.div>
               )}

@@ -36,7 +36,7 @@ function writeMode(mode: BgMode) {
 }
 
 function useBgMode(): BgMode {
-  const [mode, setMode] = useState<BgMode>('dots');
+  const [mode, setMode] = useState<BgMode>('reveal');
   useEffect(() => {
     setMode(readMode());
     const onChange = (event: Event) => setMode((event as CustomEvent<BgMode>).detail);

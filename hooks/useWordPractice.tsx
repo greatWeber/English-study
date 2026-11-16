@@ -124,7 +124,9 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
   const accuracy = answered > 0 ? Math.round((correctUnits / answered) * 100) : 0;
   const progress = totalUnits > 0 ? Math.round((answered / totalUnits) * 100) : 0;
   const lastDetail = current ? details.get(current.word) : undefined;
-  const allCorrect = phase === 'checked' && !!lastDetail && (lastDetail.correct || lastDetail.lenient);
+  // 只有「完全正确」才自动进入下一题；拼写变体/手误算通过，但要用户自己确认
+  const allCorrect = phase === 'checked' && !!lastDetail && lastDetail.correct;
+  const accepted = phase === 'checked' && !!lastDetail && (lastDetail.correct || lastDetail.lenient);
 
   const focusInput = useCallback(() => {
     window.setTimeout(() => inputRef.current?.focus(), 60);
@@ -142,6 +144,13 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
       /* 忽略 */
     }
   }, []);
+
+  // 出题即读：单词一出现就自动发音，不再等答对
+  useEffect(() => {
+    if (!autoSpeak || phase !== 'typing' || !current?.word) return;
+    speakCurrent(current.word);
+    // 重做本题（phase 重新变回 typing）时也会再读一遍
+  }, [autoSpeak, phase, currentIndex, current?.word, speakCurrent]);
 
   const saveToServer = useCallback((items: HistoryItem[]) => {
     void fetch('/api/words', {
@@ -177,12 +186,11 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     setHistory(nextHistory);
     if (passed) {
       if (detail.correct) setCelebrate((n) => n + 1);
-      if (autoSpeak) speakCurrent(current.word);
     } else {
       setWrongQueue((q) => (q.includes(currentIndex) ? q : [...q, currentIndex]));
     }
     setPhase('checked');
-  }, [current, phase, typed, history, autoSpeak, speakCurrent, currentIndex]);
+  }, [current, phase, typed, history, currentIndex]);
 
   const goNext = useCallback(() => {
     if (words.length === 0) return;
@@ -273,12 +281,12 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
           handleCheck();
           return;
         }
-        if (phase === 'revealed' || (phase === 'checked' && allCorrect)) {
+        if (phase === 'revealed' || (phase === 'checked' && accepted)) {
           event.preventDefault();
           goNext();
           return;
         }
-        if (phase === 'checked' && !allCorrect) {
+        if (phase === 'checked' && !accepted) {
           event.preventDefault();
           resetQuestion();
           return;
@@ -287,7 +295,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault();
         if (phase === 'typing') handleReveal();
-        else if (phase === 'revealed' || (phase === 'checked' && allCorrect)) goNext();
+        else if (phase === 'revealed' || (phase === 'checked' && accepted)) goNext();
         return;
       }
       if (event.key === 'Escape') {
@@ -312,7 +320,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [phase, allCorrect, handleCheck, goNext, handleReveal, resetQuestion, focusInput]);
+  }, [phase, accepted, handleCheck, goNext, handleReveal, resetQuestion, focusInput]);
 
   // 首次进入聚焦
   useEffect(() => {

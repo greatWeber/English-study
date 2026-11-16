@@ -42,7 +42,6 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
     correctUnits,
     accuracy,
     progress,
-    allCorrect,
     inputRef,
     handleCheck,
     goNext,
@@ -285,10 +284,13 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
             <p className="text-sm font-extrabold leading-snug md:text-[15px]">
               {phase === 'typing' && <>看中文意思{autoSpeak ? '，听发音' : ''}，把这个单词写出来 ✍️</>}
               {phase === 'checked' &&
-                (passed ? (
+                (detail?.correct ? (
                   <span className="text-green-600">
-                    {detail?.correct ? '完全正确！' : '基本正确（拼写变体或手误）'}{' '}
-                    <span className="text-ink/45">马上到下一个词…</span>
+                    完全正确！ <span className="text-ink/45">马上到下一个词…</span>
+                  </span>
+                ) : passed ? (
+                  <span className="text-amber-600">
+                    基本正确（拼写变体或手误），按 <b>Enter</b> 进入下一个词，或 <b>Esc</b> 重写一遍
                   </span>
                 ) : (
                   <span className="text-red-500">
@@ -321,7 +323,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                 onChange={(e) => setAutoSpeak(e.target.checked)}
                 className="h-3.5 w-3.5 accent-[#FFB26B]"
               />
-              <Headphones size={13} strokeWidth={3} /> 答对自动读音
+              <Headphones size={13} strokeWidth={3} /> 出题自动读音
             </label>
           </div>
 

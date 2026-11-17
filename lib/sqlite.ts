@@ -88,6 +88,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_sentences_category ON sentences(category);
   CREATE INDEX IF NOT EXISTS idx_records_sentence ON practice_records(sentence_id);
   CREATE INDEX IF NOT EXISTS idx_records_created ON practice_records(created_at);
+  CREATE INDEX IF NOT EXISTS idx_word_records_word ON word_records(word);
+  CREATE INDEX IF NOT EXISTS idx_word_records_created ON word_records(created_at);
 `);
 
 /* ============================================================ helpers */
@@ -251,14 +253,14 @@ export function saveRecord({
 
     let nextReview = null;
     if (!correct) {
-      // 错了：1 小时后复习
-      nextReview = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      // 错了：立即进入复习本，首页的待复习入口马上可见
+      nextReview = new Date().toISOString();
     } else if (correctCount >= 3) {
       // 连对 3 次：视为掌握，暂不复习（除非用户主动要求）
       nextReview = null;
     } else {
-      // 正确但未达连对：按简单间隔（此处简化为不立即重复，留给后续算法）
-      nextReview = null;
+      // 正确但未达连对：明天再复习一次
+      nextReview = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     }
 
     stmtUpsertStats.run(sentenceId, correct ? 1 : 0, nextReview, correct ? 1 : 0, nextReview);
@@ -266,7 +268,7 @@ export function saveRecord({
   insertRecord();
 }
 
-/** 获取需要复习的句子（错题率高或到复习时间） */
+/** 获取需要复习的句子：第一次答错就能进入复习本 */
 export function getReviewSentences(limit = 20) {
   return db.prepare(
     `SELECT s.id, s.dataset_id, s.level, s.category, s.text, s.zh, s.blanks, s.source,
@@ -274,16 +276,26 @@ export function getReviewSentences(limit = 20) {
            ROUND(100.0 * st.correct_count / NULLIF(st.total_attempts, 0), 1) AS accuracy
      FROM sentence_stats st
      JOIN sentences s ON s.id = st.sentence_id
-     WHERE st.total_attempts >= 2
+     WHERE st.total_attempts >= 1
        AND (st.correct_count * 1.0 / st.total_attempts) < 0.7
-       AND (st.next_review_at IS NULL OR datetime(st.next_review_at) <= datetime('now'))
      ORDER BY accuracy ASC, st.total_attempts DESC
      LIMIT ?`
   ).all(limit);
 }
 
-/** 清空做题记录与统计（复习本「清空错题本」用），返回删掉的记录数 */
-export function clearAllRecords() {
+/** 复习本句子数量（首页待复习入口用） */
+export function countReviewSentences() {
+  const row = db.prepare(
+    `SELECT COUNT(*) AS c
+     FROM sentence_stats st
+     WHERE st.total_attempts >= 1
+       AND (st.correct_count * 1.0 / st.total_attempts) < 0.7`
+  ).get() as { c: number };
+  return Number(row.c) || 0;
+}
+
+/** 清空句子练习记录与统计 */
+export function clearSentenceRecords() {
   const { c } = db.prepare('SELECT COUNT(*) AS c FROM practice_records').get() as { c: number };
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM practice_records').run();
@@ -293,19 +305,127 @@ export function clearAllRecords() {
   return { deleted: c };
 }
 
-/** 获取总体统计 */
+/** 清空单词练习记录 */
+export function clearWordRecords() {
+  const { c } = db.prepare('SELECT COUNT(*) AS c FROM word_records').get() as { c: number };
+  db.prepare('DELETE FROM word_records').run();
+  return { deleted: c };
+}
+
+/** 清空全部练习记录（兼容旧入口） */
+export function clearAllRecords() {
+  const sentences = clearSentenceRecords();
+  const words = clearWordRecords();
+  return { deleted: sentences.deleted + words.deleted };
+}
+
+/** 获取总体统计（句子 + 单词） */
 export function getOverviewStats() {
-  const totalRecords = db.prepare('SELECT COUNT(*) AS c FROM practice_records').get() as { c: number };
-  const correctRecords = db.prepare("SELECT COUNT(*) AS c FROM practice_records WHERE correct = 1").get() as { c: number };
-  const distinctSentences = db.prepare('SELECT COUNT(DISTINCT sentence_id) AS c FROM practice_records').get() as { c: number };
-  const avgAccuracy = db.prepare(
-    'SELECT ROUND(100.0 * SUM(correct) / COUNT(*), 1) AS acc FROM practice_records'
-  ).get() as { acc: number | null };
+  const row = db.prepare(
+    `SELECT COUNT(*) AS attempts,
+            COALESCE(SUM(correct), 0) AS correct
+     FROM (
+       SELECT correct FROM practice_records
+       UNION ALL
+       SELECT correct FROM word_records
+     )`
+  ).get() as { attempts: number; correct: number };
+  const distinctSentences = db.prepare(
+    'SELECT COUNT(DISTINCT sentence_id) AS c FROM practice_records'
+  ).get() as { c: number };
   return {
-    totalAttempts: totalRecords.c,
-    totalCorrect: correctRecords.c,
-    accuracy: avgAccuracy.acc ?? 0,
-    distinctSentencesPracticed: distinctSentences.c,
+    totalAttempts: Number(row.attempts) || 0,
+    totalCorrect: Number(row.correct) || 0,
+    accuracy: row.attempts > 0 ? Math.round((row.correct / row.attempts) * 1000) / 10 : 0,
+    distinctSentencesPracticed: Number(distinctSentences.c) || 0,
+  };
+}
+
+/* ============================================================ 首页学习面板 */
+
+function localDateKey(date: Date) {
+  return date.toLocaleDateString('en-CA');
+}
+
+/** 聚合首页需要的连续天数、今日进度、待复习数量和近 7 天趋势 */
+export function getDashboardStats() {
+  const todayRow = db.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM practice_records
+         WHERE date(created_at, 'localtime') = date('now', 'localtime')) +
+       (SELECT COUNT(*) FROM word_records
+         WHERE date(created_at, 'localtime') = date('now', 'localtime')) AS attempts,
+       (SELECT COALESCE(SUM(correct), 0) FROM practice_records
+         WHERE date(created_at, 'localtime') = date('now', 'localtime')) +
+       (SELECT COALESCE(SUM(correct), 0) FROM word_records
+         WHERE date(created_at, 'localtime') = date('now', 'localtime')) AS correct`
+  ).get() as { attempts: number; correct: number };
+
+  const total = getOverviewStats();
+
+  const activeDays = db.prepare(
+    `SELECT DISTINCT d FROM (
+       SELECT date(created_at, 'localtime') AS d FROM practice_records
+       UNION ALL
+       SELECT date(created_at, 'localtime') AS d FROM word_records
+     )
+     WHERE d IS NOT NULL
+     ORDER BY d DESC
+     LIMIT 400`
+  ).all() as Array<{ d: string }>;
+  const daySet = new Set(activeDays.map((row) => row.d));
+  let streak = 0;
+  const cursor = new Date();
+  if (!daySet.has(localDateKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  while (daySet.has(localDateKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  const recentRows = db.prepare(
+    `SELECT d, COUNT(*) AS attempts, COALESCE(SUM(correct), 0) AS correct
+     FROM (
+       SELECT date(created_at, 'localtime') AS d, correct FROM practice_records
+       UNION ALL
+       SELECT date(created_at, 'localtime') AS d, correct FROM word_records
+     )
+     WHERE d IS NOT NULL
+     GROUP BY d
+     ORDER BY d DESC
+     LIMIT 7`
+  ).all() as Array<{ d: string; attempts: number; correct: number }>;
+  const recentMap = new Map(recentRows.map((row) => [row.d, row]));
+  const last7Days: Array<{ date: string; attempts: number; correct: number }> = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = localDateKey(date);
+    const row = recentMap.get(key);
+    last7Days.push({
+      date: key,
+      attempts: Number(row?.attempts) || 0,
+      correct: Number(row?.correct) || 0,
+    });
+  }
+
+  return {
+    streak,
+    today: {
+      attempts: Number(todayRow.attempts) || 0,
+      correct: Number(todayRow.correct) || 0,
+      accuracy:
+        todayRow.attempts > 0
+          ? Math.round((todayRow.correct / todayRow.attempts) * 100)
+          : 0,
+    },
+    review: {
+      sentences: countReviewSentences(),
+      words: countWordReview(),
+    },
+    total,
+    last7Days,
   };
 }
 
@@ -395,29 +515,63 @@ export function saveWordRecords(
   return run();
 }
 
-/** 单词默写抽题：按等级从 word_cefr 随机取 N 词，联 word_dict 带出音标/释义 */
-/** 词库总量（可按等级过滤），首页徽标用 */
-export function countWordBank(level: string): number {
-  const row =
-    level && level !== 'all'
-      ? db.prepare('SELECT COUNT(*) AS n FROM word_cefr WHERE level = ?').get(level)
-      : db.prepare('SELECT COUNT(*) AS n FROM word_cefr').get();
+/** 单词默写抽题：按等级 / 考试词表从 word_cefr 取词，联 word_dict 带出音标/释义 */
+/** 词库总量（可按等级、考试标签过滤），首页徽标用 */
+export function countWordBank(level: string, exam = ''): number {
+  const where: string[] = [];
+  const params: string[] = [];
+  if (level && level !== 'all') {
+    where.push('w.level = ?');
+    params.push(level);
+  }
+  if (exam) {
+    where.push("(' ' || d.tag || ' ') LIKE ?");
+    params.push(`% ${exam} %`);
+  }
+  const sql = `SELECT COUNT(*) AS n FROM word_cefr w JOIN word_dict d ON d.word = w.word${
+    where.length ? ` WHERE ${where.join(' AND ')}` : ''
+  }`;
+  const row = db.prepare(sql).get(...params);
   return Number((row as { n: number }).n) || 0;
 }
 
-export function getWordQuiz(level: string, count: number) {
-  const where = level && level !== 'all' ? 'WHERE w.level = ?' : '';
-  const params: unknown[] = level && level !== 'all' ? [level] : [];
+export function getWordQuiz(
+  level: string,
+  count: number,
+  exam = '',
+  ids?: string[]
+) {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (level && level !== 'all') {
+    where.push('w.level = ?');
+    params.push(level);
+  }
+  if (exam) {
+    where.push("(' ' || d.tag || ' ') LIKE ?");
+    params.push(`% ${exam} %`);
+  }
+  if (ids && ids.length > 0) {
+    where.push(`w.word IN (${ids.map(() => '?').join(',')})`);
+    params.push(...ids);
+  }
+
+  const orderBy =
+    ids && ids.length > 0
+      ? `ORDER BY CASE w.word ${ids.map((_, index) => `WHEN ? THEN ${index}`).join(' ')} ELSE ${ids.length} END`
+      : 'ORDER BY RANDOM()';
+  const orderParams = ids && ids.length > 0 ? ids : [];
+  const limit = ids && ids.length > 0 ? ids.length : count;
   const rows = db
     .prepare(
       `SELECT w.word, w.level, w.pos, d.phonetic, d.translation, d.inf_of, d.inf_label
          FROM word_cefr w
          JOIN word_dict d ON d.word = w.word
-        ${where}
-        ORDER BY RANDOM()
+        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+        ${orderBy}
         LIMIT ?`
     )
-    .all(...params, count) as Array<{
+    .all(...params, ...orderParams, limit) as Array<{
     word: string;
     level: string;
     pos: string;
@@ -427,6 +581,71 @@ export function getWordQuiz(level: string, count: number) {
     inf_label: string;
   }>;
   return rows;
+}
+
+/** 单词复习列表：答错未掌握的词（正确次数 < 3） */
+export function getWordReview(limit = 50) {
+  return db.prepare(
+    `WITH agg AS (
+       SELECT word,
+              COUNT(*) AS total_attempts,
+              SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END) AS correct_count,
+              SUM(CASE WHEN correct = 0 THEN 1 ELSE 0 END) AS wrong_count,
+              ROUND(100.0 * SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS accuracy,
+              MAX(created_at) AS last_attempt_at
+       FROM word_records
+       GROUP BY word
+     ),
+     last AS (
+       SELECT r.word, r.correct AS last_correct
+       FROM word_records r
+       WHERE r.id = (SELECT MAX(r2.id) FROM word_records r2 WHERE r2.word = r.word)
+     )
+     SELECT a.word, a.total_attempts, a.correct_count, a.wrong_count, a.accuracy,
+            a.last_attempt_at, d.phonetic, d.translation, w.level
+     FROM agg a
+     JOIN last l ON l.word = a.word
+     JOIN word_dict d ON d.word = a.word
+     LEFT JOIN word_cefr w ON w.word = a.word
+     WHERE a.correct_count < 3
+       AND (l.last_correct = 0 OR a.accuracy < 70)
+     ORDER BY a.accuracy ASC, a.last_attempt_at DESC
+     LIMIT ?`
+  ).all(limit) as Array<{
+    word: string;
+    total_attempts: number;
+    correct_count: number;
+    wrong_count: number;
+    accuracy: number;
+    last_attempt_at: string;
+    phonetic: string;
+    translation: string;
+    level: string | null;
+  }>;
+}
+
+/** 待复习单词数量 */
+export function countWordReview() {
+  const row = db.prepare(
+    `WITH agg AS (
+       SELECT word,
+              SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END) AS correct_count,
+              ROUND(100.0 * SUM(CASE WHEN correct = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS accuracy
+       FROM word_records
+       GROUP BY word
+     ),
+     last AS (
+       SELECT r.word, r.correct AS last_correct
+       FROM word_records r
+       WHERE r.id = (SELECT MAX(r2.id) FROM word_records r2 WHERE r2.word = r.word)
+     )
+     SELECT COUNT(*) AS c
+     FROM agg a
+     JOIN last l ON l.word = a.word
+     WHERE a.correct_count < 3
+       AND (l.last_correct = 0 OR a.accuracy < 70)`
+  ).get() as { c: number };
+  return Number(row.c) || 0;
 }
 
 /** 关闭数据库（用于测试/退出） */

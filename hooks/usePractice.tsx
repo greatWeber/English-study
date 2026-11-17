@@ -36,6 +36,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const [activeBlank, setActiveBlank] = useState(0);
   const [celebrate, setCelebrate] = useState(0);
   const [checking, setChecking] = useState(false);
+  const [round, setRound] = useState(0);
 
   const inputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
   const dictationRef = useRef<HTMLTextAreaElement | null>(null);
@@ -88,7 +89,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     return () => {
       cancelled = true;
     };
-  }, [dataset, level, category, mode, reviewMode, ids]);
+  }, [dataset, level, category, mode, reviewMode, ids, round]);
 
   /* ---------------- 每题初始化 ---------------- */
 
@@ -398,24 +399,18 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
   const startRound = useCallback(() => {
     setHistory([]);
     setCheckDetails([]);
-    setTypedWords(exercise ? Array(exercise.blanks.length).fill('') : []);
+    setTypedWords([]);
     setTypedSentence('');
     setDictationExtras([]);
     setPhase('typing');
     setActiveBlank(0);
     setShowZh(mode === 'dictation');
     setCelebrate(0);
+    setCurrentIndex(0);
     startedAtRef.current = Date.now();
-
-    if (currentIndex !== 0) {
-      setCurrentIndex(0);
-    } else {
-      window.setTimeout(() => {
-        if (isDictation) focusDictation();
-        else focusBlank(0);
-      }, 80);
-    }
-  }, [exercise, currentIndex, mode, isDictation, focusBlank, focusDictation]);
+    // 重新抽题：避免「再练一轮」重复上一批 50 句
+    setRound((n) => n + 1);
+  }, [mode]);
 
   const finishEarly = useCallback(() => {
     if (history.length === 0) {
@@ -610,7 +605,7 @@ export function usePractice({ searchParams }: { searchParams: URLSearchParams })
     return '每个空都填好了，按 Enter 检查一下？';
   })();
 
-  const backHref = `/?dataset=${encodeURIComponent(dataset)}&level=${encodeURIComponent(level)}&category=${encodeURIComponent(category)}&mode=${mode}`;
+  const backHref = `/?track=campus&content=sentence&dataset=${encodeURIComponent(dataset)}&level=${encodeURIComponent(level)}&category=${encodeURIComponent(category)}&mode=${mode}`;
 
   return {
     // 题目与阶段

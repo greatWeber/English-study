@@ -13,6 +13,10 @@
   body {
     margin: 0;
   }
+  :focus-visible {
+    outline: 3px solid #ffb26b;
+    outline-offset: 3px;
+  }
 }
 
 @layer components {
@@ -60,5 +64,25 @@
   }
   .confetti-piece {
     border-radius: 2px;
+  }
+}
+
+/* 尊重系统「减少动态效果」设置：关掉装饰动画，保留判分颜色反馈 */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-float,
+  .animate-float-slow,
+  .animate-bounce-soft,
+  .animate-wiggle,
+  .animate-sparkle,
+  .animate-wave-pop,
+  .animate-word-in {
+    animation: none !important;
+  }
+  .ink-btn,
+  .ink-card {
+    transition: none !important;
   }
 }

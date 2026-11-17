@@ -1,3 +1,33 @@
+export const TRACKS = [
+  {
+    id: 'campus',
+    label: '校园成长',
+    icon: '🌱',
+    desc: '每天一点点，适合 K12 与日常提升',
+  },
+  {
+    id: 'exam',
+    label: '考试冲刺',
+    icon: '🎯',
+    desc: '对准目标考试词表，练得更高效',
+  },
+] as const;
+
+export type TrackId = (typeof TRACKS)[number]['id'];
+
+export const EXAMS = [
+  { id: 'zk', label: '中考核心', short: '中考', group: 'campus', tag: 'zk' },
+  { id: 'gk', label: '高考核心', short: '高考', group: 'campus', tag: 'gk' },
+  { id: 'cet4', label: 'CET-4', short: '四级', group: 'exam', tag: 'cet4' },
+  { id: 'cet6', label: 'CET-6', short: '六级', group: 'exam', tag: 'cet6' },
+  { id: 'ky', label: '考研', short: '考研', group: 'exam', tag: 'ky' },
+  { id: 'ielts', label: 'IELTS', short: '雅思', group: 'exam', tag: 'ielts' },
+  { id: 'toefl', label: 'TOEFL', short: '托福', group: 'exam', tag: 'toefl' },
+  { id: 'gre', label: 'GRE', short: 'GRE', group: 'exam', tag: 'gre' },
+] as const;
+
+export type ExamId = (typeof EXAMS)[number]['id'];
+
 export const LEVELS = [
   { id: 'A1', label: 'A1 入门', desc: '最基础的日常表达、短句' },
   { id: 'A2', label: 'A2 初级', desc: '常见场景的简单交流' },

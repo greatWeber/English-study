@@ -21,6 +21,7 @@ type HistoryItem = {
   typed: string;
   correct: boolean;
   lenient: boolean;
+  timeSpent: number;
 };
 
 const WORD_RE = /^[A-Za-z][A-Za-z'-]*$/;
@@ -64,6 +65,8 @@ function judge(expected: string, typed: string): WordDetail {
 export function useWordPractice({ searchParams }: { searchParams: URLSearchParams }) {
   const level = searchParams.get('level') || 'all';
   const count = Math.min(Math.max(parseInt(searchParams.get('count') || '20', 10) || 20, 5), 50);
+  const exam = searchParams.get('exam') || '';
+  const ids = searchParams.get('ids') || '';
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -77,15 +80,20 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [revealOnWrong, setRevealOnWrong] = useState(false);
   const [wrongQueue, setWrongQueue] = useState<number[]>([]);
+  const [attemptsByWord, setAttemptsByWord] = useState<Map<string, number>>(new Map());
+  const [round, setRound] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const startTimeRef = useRef<number>(Date.now());
 
-  // 拉取本轮词表
+  // 拉取本轮词表（round 变化时重新抽题）
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError('');
-    fetch(`/api/words?level=${encodeURIComponent(level)}&count=${count}`)
+    const params = new URLSearchParams({ level, count: String(count) });
+    if (exam) params.set('exam', exam);
+    if (ids) params.set('ids', ids);
+    fetch(`/api/words?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
@@ -97,13 +105,14 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
           setDetails(new Map());
           setHistory([]);
           setWrongQueue([]);
+          setAttemptsByWord(new Map());
           startTimeRef.current = Date.now();
         } else {
-          setLoadError('这个等级下暂时没有可默写的单词，先去首页换个等级试试。');
+          setLoadError('这个范围下暂时没有可默写的单词，先去首页换个词表试试。');
         }
       })
       .catch(() => {
-        if (!cancelled) setLoadError('词表加载失败，请确认数据库已生成（npm run build:dict && npm run build:words）。');
+        if (!cancelled) setLoadError('词表加载失败，请稍后重试或回首页换个词表。');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -111,8 +120,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [level, count, exam, ids, round]);
 
   const current = words[currentIndex];
   const totalUnits = words.length;
@@ -156,7 +164,13 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     void fetch('/api/words', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ words: items.map((i) => ({ word: i.word, typed: i.typed, timeSpent: 1 })) }),
+      body: JSON.stringify({
+        words: items.map((i) => ({
+          word: i.word,
+          typed: i.typed,
+          timeSpent: Math.max(1, i.timeSpent),
+        })),
+      }),
     }).catch(() => undefined);
   }, []);
 
@@ -172,6 +186,11 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     if (!current || phase !== 'typing') return;
     const detail = judge(current.word, typed);
     setDetails((prev) => new Map(prev).set(current.word, detail));
+    setAttemptsByWord((prev) => {
+      const next = new Map(prev);
+      next.set(current.word, (next.get(current.word) ?? 0) + 1);
+      return next;
+    });
     const passed = detail.correct || detail.lenient;
     const nextHistory = [
       ...history,
@@ -181,6 +200,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
         typed,
         correct: detail.correct,
         lenient: detail.lenient,
+        timeSpent: Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000)),
       },
     ];
     setHistory(nextHistory);
@@ -222,6 +242,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     setWrongQueue((q) => q.filter((i) => i !== currentIndex));
     setTyped('');
     setPhase('typing');
+    startTimeRef.current = Date.now();
     focusInput();
   }, [current, currentIndex, focusInput]);
 
@@ -238,6 +259,11 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     setPhase('typing');
     focusInput();
   }, [wrongQueue, words, focusInput]);
+
+  // 再来一组：重新抽题，不重复上一组
+  const restartRound = useCallback(() => {
+    setRound((n) => n + 1);
+  }, []);
 
   const finishEarly = useCallback(() => {
     finishRound(history);
@@ -333,13 +359,16 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     startTimeRef.current = Date.now();
   }, [currentIndex]);
 
-  const backHref = `/?content=word&level=${encodeURIComponent(level)}`;
+  const backHref = `/?track=${exam ? 'exam' : 'campus'}&content=word&level=${encodeURIComponent(level)}${
+    exam ? `&exam=${encodeURIComponent(exam)}` : ''
+  }`;
 
   return {
     loading,
     loadError,
     level,
     count,
+    exam,
     words,
     currentIndex,
     phase,
@@ -355,6 +384,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     revealOnWrong,
     setRevealOnWrong,
     wrongQueue,
+    attemptsByWord,
     totalUnits,
     answered,
     correctUnits,
@@ -367,6 +397,7 @@ export function useWordPractice({ searchParams }: { searchParams: URLSearchParam
     handleReveal,
     resetQuestion,
     retryWrong,
+    restartRound,
     finishEarly,
     speakCurrent,
     backHref,

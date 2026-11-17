@@ -107,7 +107,7 @@ export function DictationBoard({
             autoCorrect="off"
             autoCapitalize="none"
             spellCheck={false}
-            className="w-full resize-none overflow-y-auto rounded-[24px] border-[3px] border-ink bg-white px-5 py-4 font-cartoon text-lg font-bold leading-relaxed text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all placeholder:text-ink/25 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-xl"
+            className="w-full resize-none overflow-y-auto rounded-[24px] border-[3px] border-ink bg-white px-5 py-4 font-sans text-lg font-bold leading-relaxed text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all placeholder:text-ink/30 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-xl"
           />
         </label>
 
@@ -134,7 +134,7 @@ export function DictationBoard({
           <CheckCircle2 size={13} strokeWidth={3} />
           {phase === 'revealed' ? '参考句子' : '正确句子'}
         </p>
-        <p className="text-left text-[22px] font-bold leading-[1.75] md:text-[27px]">
+        <p className="text-left font-sans text-[22px] font-bold leading-[1.75] md:text-[27px]">
           {parts.map((part, index) => {
             if (!part.isWord) {
               return (

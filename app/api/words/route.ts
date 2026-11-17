@@ -11,8 +11,17 @@ export async function GET(req: Request) {
     const params = new URL(req.url).searchParams;
     const level = params.get('level') || 'all';
     const count = Math.min(Math.max(Number(params.get('count')) || 20, 5), 50);
+    const exam = params.get('exam') || '';
+    const idsParam = params.get('ids');
+    const ids = idsParam
+      ? idsParam
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean)
+          .slice(0, 50)
+      : undefined;
 
-    const rows = getWordQuiz(level, count);
+    const rows = getWordQuiz(level, count, exam, ids);
     // 释义只留第一行，题目卡更清爽
     const words = rows.map((r) => ({
       word: r.word,
@@ -21,8 +30,12 @@ export async function GET(req: Request) {
       translation: (r.translation || '').split('\n')[0] || '',
     }));
 
-    // total：该等级词库总量，首页徽标用
-    return NextResponse.json({ ok: true, words, total: countWordBank(level) });
+    // total：当前筛选条件下的词库总量，首页徽标用
+    return NextResponse.json({
+      ok: true,
+      words,
+      total: ids?.length ? words.length : countWordBank(level, exam),
+    });
   } catch (err: any) {
     console.error('words api error:', err);
     return NextResponse.json({ ok: false, error: err?.message || 'words failed' }, { status: 500 });

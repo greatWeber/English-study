@@ -119,7 +119,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
   const [fxRun, setFxRun] = useState(0);
   const [starRun, setStarRun] = useState(0); // >0 时星星在飞
   const [starLandKey, setStarLandKey] = useState(0); // 星星落地：计分器弹跳 key
-  const [waveSeq, setWaveSeq] = useState(0); // 重放逐词波浪用的重挂载序号
+  const waveSeq = 0; // 逐词波浪按当前阶段重放
   const [soundOn, setSoundOn] = useState(true);
   // 主卡震动：用 controls 播放，避免 key 变化重挂载整个卡片（会丢输入状态、重放入场动画）
   const cardShake = useAnimationControls();
@@ -154,12 +154,6 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
     prevCelebrate.current = celebrate;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [celebrate]);
-
-  // 测试按钮：整套重放（逐词波浪只在批改/看答案阶段可重放）
-  const playTestShow = () => {
-    playCelebration();
-    if (canHighlight) setWaveSeq((n) => n + 1);
-  };
 
   const handleStarLanded = () => {
     setStarRun(0);
@@ -198,8 +192,8 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             📭
           </div>
           <h2 className="text-2xl font-extrabold">这一格还没有题目</h2>
-          <p className="mt-2 text-sm font-semibold text-ink/55">
-            换个等级或场景试试，或者先导入一些语料吧～
+          <p className="mt-2 text-sm font-semibold text-ink/60">
+            换个等级或场景试试；如果开着「只看待复习」，也可以先关掉它。
           </p>
           <button
             type="button"
@@ -237,7 +231,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             <Mascot className="h-9 w-9" />
           </span>
           <span>
-            <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-ink/40">
+            <span className="block text-[10px] font-black uppercase tracking-[0.22em] text-ink/55">
               Dictation Fun
             </span>
             <span className="block text-lg font-extrabold leading-tight md:text-xl">
@@ -260,7 +254,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               strokeWidth={3}
               fill={reviewMode ? 'currentColor' : 'none'}
             />
-            {reviewMode ? '复习模式' : '错题复习'}
+            只看待复习
           </button>
           <Link
             href="/"
@@ -282,7 +276,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
               <button
                 type="button"
                 onClick={() => router.push('/')}
-                className="text-xs font-extrabold text-ink/45 underline decoration-dotted decoration-2 underline-offset-4 hover:text-ink"
+                className="text-xs font-extrabold text-ink/60 underline decoration-dotted decoration-2 underline-offset-4 hover:text-ink"
               >
                 返回选题页
               </button>
@@ -343,7 +337,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                         <span className="text-red-500 line-through decoration-2">
                           {word.typed || '空着'}
                         </span>
-                        <ArrowRight size={11} strokeWidth={3} className="text-ink/35" />
+                        <ArrowRight size={11} strokeWidth={3} className="text-ink/50" />
                         <span className="text-green-700">{word.expected}</span>
                       </span>
                     ))}
@@ -517,7 +511,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                   />
                 ) : (
                   <>
-                    <div className="relative z-10 mx-auto text-center text-[25px] font-bold leading-[2.15] md:text-[33px]">
+                    <div className="relative z-10 mx-auto text-center font-sans text-[25px] font-bold leading-[2.15] md:text-[33px]">
                       {exercise &&
                         (() => {
                           const chunks = buildChunks(exercise);
@@ -582,7 +576,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                                       }
                                     >
                                       {chunk.wordText}
-                                      <span className={spoken ? 'text-white/80' : 'text-ink/40'}>
+                                      <span className={spoken ? 'text-white/80' : 'text-ink/55'}>
                                         {chunk.punct}
                                       </span>
                                     </span>
@@ -678,7 +672,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     </>
                   )}
                 </div>
-                <p className="text-[11px] font-bold text-ink/40">
+                <p className="text-[11px] font-bold text-ink/55">
                   {isDictation
                     ? 'Enter 检查 · Shift + Enter 换行 · 标点不计错'
                     : 'Tab / 空格 跳下一空 · Enter 检查'}
@@ -937,7 +931,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                       <h3 className="text-sm font-extrabold">
                         {isDictation ? '逐词对照' : '批改小报告'}
                       </h3>
-                      <p className="text-[10px] font-bold text-ink/45">
+                      <p className="text-[10px] font-bold text-ink/60">
                         {isDictation
                           ? '红色的词再记一遍，整句就稳了'
                           : '红色的地方再瞄一眼，印象更深'}
@@ -998,7 +992,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                         <span className="text-red-500 line-through decoration-2">
                           {dictationExtras.join(' / ')}
                         </span>
-                        <span className="text-[10px] font-bold text-ink/40">
+                        <span className="text-[10px] font-bold text-ink/55">
                           整句里不需要这些词，删掉就好
                         </span>
                       </li>
@@ -1023,7 +1017,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                     </span>
                     <div>
                       <h3 className="text-sm font-extrabold">近义替换（也算对）</h3>
-                      <p className="text-[10px] font-bold text-ink/45">
+                      <p className="text-[10px] font-bold text-ink/60">
                         意思一样就是好答案，标准答案也一并记一下～
                       </p>
                     </div>
@@ -1043,7 +1037,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
                         <span className="text-sky-700">{detail.typed}</span>
                         {detail.typed.toLowerCase() !== detail.expected.toLowerCase() && (
                           <>
-                            <span className="text-[10px] font-bold text-ink/35">标准答案</span>
+                            <span className="text-[10px] font-bold text-ink/50">标准答案</span>
                             <span className="text-green-700">{detail.expected}</span>
                           </>
                         )}
@@ -1055,7 +1049,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             </AnimatePresence>
 
             {/* 快捷键说明 */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-ink/40">
+            <div className="mt-5 hidden flex-wrap items-center justify-center gap-2 text-[11px] font-bold text-ink/55 sm:flex">
               {isDictation ? (
                 <>
                   <KeyCap>Enter</KeyCap> 检查 · 答错重做 · 全对下一题
@@ -1113,15 +1107,6 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
         onLanded={handleStarLanded}
       />
 
-      {/* 开发用：动画测试按钮（答对没感觉？点它连放） */}
-      <button
-        type="button"
-        onClick={playTestShow}
-        title="重放整套庆祝动画（盖章/星星/音效；批改后还可重放逐词波浪）"
-        className="fixed bottom-5 right-5 z-[97] inline-flex items-center gap-1.5 rounded-full border-[3px] border-ink bg-lemon px-4 py-2 text-xs font-extrabold text-ink shadow-[4px_4px_0_0_#2B2B45] transition-transform hover:-translate-y-0.5 hover:shadow-[4px_6px_0_0_#2B2B45] active:translate-y-0.5 active:shadow-[2px_2px_0_0_#2B2B45]"
-      >
-        🎉 测试动画
-      </button>
     </div>
   );
 }

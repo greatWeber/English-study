@@ -9,6 +9,7 @@ import {
   Flag,
   Home,
   RotateCcw,
+  RefreshCw,
   Volume2,
   VolumeX,
   Headphones,
@@ -51,6 +52,8 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
     finishEarly,
     wrongQueue,
     history,
+    attemptsByWord,
+    restartRound,
     backHref,
   } = wp;
 
@@ -149,9 +152,9 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                       className="rounded-xl border-2 border-red-200 bg-white px-2.5 py-1 text-xs font-bold"
                     >
                       <span className="text-red-500 line-through decoration-2">{w.typed || '空着'}</span>
-                      <ArrowRight size={10} strokeWidth={3} className="mx-1 inline text-ink/35" />
+                      <ArrowRight size={10} strokeWidth={3} className="mx-1 inline text-ink/50" />
                       <span className="text-green-700">{w.word}</span>
-                      <span className="ml-1 text-ink/40">{w.translation}</span>
+                      <span className="ml-1 text-ink/55">{w.translation}</span>
                     </span>
                   ))}
                 </div>
@@ -160,7 +163,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
 
             {lenientList.length > 0 && (
               <div className="mt-4 rounded-2xl border-2 border-dashed border-lemon bg-lemon/10 p-4 text-left">
-                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-ink/40">
+                <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-ink/55">
                   只差一点点（拼写变体/手误）
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -169,7 +172,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                       key={`${w.word}-${i}`}
                       className="rounded-xl border-2 border-lemon bg-white px-2.5 py-1 text-xs font-bold"
                     >
-                      {w.typed} <ArrowRight size={10} strokeWidth={3} className="mx-1 inline text-ink/35" />
+                      {w.typed} <ArrowRight size={10} strokeWidth={3} className="mx-1 inline text-ink/50" />
                       {w.word}
                     </span>
                   ))}
@@ -187,6 +190,13 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                   <RotateCcw size={18} strokeWidth={3} /> 重练这 {wrongQueue.length} 个错词
                 </button>
               )}
+              <button
+                type="button"
+                onClick={restartRound}
+                className="ink-btn ink-btn-white flex-1 py-3.5 text-base"
+              >
+                <RefreshCw size={18} strokeWidth={3} /> 再来一组
+              </button>
               <Link href="/" className="ink-btn ink-btn-white flex-1 py-3.5 text-base">
                 <Home size={18} strokeWidth={3} /> 回首页
               </Link>
@@ -202,7 +212,13 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
   const detail = current ? wp.details.get(current.word) : undefined;
   const isStatic = phase === 'checked' || phase === 'revealed';
   const passed = !!detail && (detail.correct || detail.lenient);
-  const showAnswer = isStatic && !detail?.correct;
+  const attemptCount = current ? attemptsByWord.get(current.word) ?? 0 : 0;
+  // 第一次答错只给字母提示；第二次答错或主动看答案才展示完整拼写
+  const showFullAnswer =
+    isStatic &&
+    !detail?.correct &&
+    (phase === 'revealed' || attemptCount >= 2 || Boolean(detail?.lenient));
+  const showAnswer = showFullAnswer;
 
   // 逐字母对照：答案 vs 你写的
   const answer = current?.word ?? '';
@@ -286,7 +302,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
               {phase === 'checked' &&
                 (detail?.correct ? (
                   <span className="text-green-600">
-                    完全正确！ <span className="text-ink/45">马上到下一个词…</span>
+                    完全正确！ <span className="text-ink/60">马上到下一个词…</span>
                   </span>
                 ) : passed ? (
                   <span className="text-amber-600">
@@ -294,7 +310,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                   </span>
                 ) : (
                   <span className="text-red-500">
-                    再看看正确答案，按 <b>Enter</b> 重写一遍 💪
+                    先看字母提示，按 <b>Enter</b> 重写一遍；想不起来就点“看答案” 💪
                   </span>
                 ))}
               {phase === 'revealed' && <>这是正确答案，记住拼法后按 Enter 继续。</>}
@@ -369,7 +385,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                         autoCapitalize="none"
                         autoCorrect="off"
                         placeholder="在这里写出单词…"
-                        className="w-full rounded-2xl border-[3px] border-ink bg-white px-5 py-3.5 text-center font-cartoon text-2xl font-extrabold tracking-wide text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all caret-[#FF8A00] placeholder:text-base placeholder:font-bold placeholder:text-ink/25 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-3xl"
+                        className="w-full rounded-2xl border-[3px] border-ink bg-white px-5 py-3.5 text-center font-mono text-2xl font-extrabold tracking-wide text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all caret-[#FF8A00] placeholder:text-base placeholder:font-bold placeholder:text-ink/25 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-3xl"
                       />
                     </div>
                   ) : (
@@ -380,20 +396,26 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                           {answer.split('').map((ch, i) => {
                             const typedCh = typedNorm[i] ?? '';
                             const ok = typedCh.toLowerCase() === ch.toLowerCase();
+                            const masked = !showFullAnswer && !detail?.correct;
+                            const visibleCh = masked && i > 0 && !ok ? '·' : ch;
                             const color = detail?.correct
                               ? 'text-green-600'
-                              : ok
-                                ? 'text-green-600'
-                                : typedCh
-                                  ? 'text-red-500'
-                                  : 'text-ink/30';
+                              : masked
+                                ? ok
+                                  ? 'text-green-600'
+                                  : 'text-ink/30'
+                                : ok
+                                  ? 'text-green-600'
+                                  : typedCh
+                                    ? 'text-red-500'
+                                    : 'text-ink/30';
                             return (
                               <span
                                 key={i}
-                                className="animate-wave-pop inline-block"
+                                className={`${masked ? '' : 'animate-wave-pop'} inline-block`}
                                 style={{ animationDelay: `${i * 45}ms` }}
                               >
-                                {ch}
+                                {visibleCh}
                               </span>
                             );
                           })}
@@ -405,9 +427,20 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                         {detail?.correct && <Squiggle active delay={0.15} />}
                       </div>
 
+                      {/* 第一次答错：只给长度和首字母，避免直接抄答案 */}
+                      {isStatic && !detail?.correct && !showFullAnswer && (
+                        <p className="max-w-sm text-center text-xs font-bold leading-relaxed text-ink/60">
+                          答案共 <b>{answer.length}</b> 个字母，首字母是{' '}
+                          <span className="rounded-md bg-lemon/50 px-1.5 py-0.5 font-mono text-ink">
+                            {answer[0]}
+                          </span>
+                          。再试一次，或点“看答案”。
+                        </p>
+                      )}
+
                       {/* 写错时显示你的原文 */}
                       {showAnswer && (
-                        <p className="text-xs font-bold text-ink/50">
+                        <p className="text-xs font-bold text-ink/55">
                           你写的是：
                           <span className="mx-1 rounded-md bg-[#FFE3E3] px-2 py-0.5 font-mono text-red-500">
                             {typed || '（空着）'}
@@ -470,6 +503,16 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                     再试一次
                     <KeyCap>Enter</KeyCap>
                   </button>
+                  {!showFullAnswer && (
+                    <button
+                      type="button"
+                      onClick={handleReveal}
+                      className="ink-btn ink-btn-white inline-flex px-4 py-2 text-sm"
+                    >
+                      <Eye size={16} strokeWidth={3} />
+                      看答案
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={goNext}
@@ -496,7 +539,7 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
         </section>
 
         {/* 快捷键说明 */}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-extrabold text-ink/40">
+        <div className="mt-5 hidden flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[11px] font-extrabold text-ink/55 sm:flex">
           <span className="flex items-center gap-1.5">
             <KeyCap>直接敲字母</KeyCap> 落进输入框
           </span>

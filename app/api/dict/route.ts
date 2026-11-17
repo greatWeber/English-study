@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { examTags, lookupWord } from '@/lib/dictionary';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /** GET /api/dict?word=walked —— 离线词典查询，未命中返回 found:false */
 export async function GET(req: Request) {

@@ -25,51 +25,7 @@ export function StarDoodle({ className }: { className?: string }) {
   );
 }
 
-export function Mascot({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      {/* 水面 */}
-      <ellipse cx="50" cy="82" rx="44" ry="12" fill="#8ED3F4" stroke="#2B2B45" strokeWidth="4" />
-      <path d="M18 82 Q 34 78 50 82 Q 66 78 82 82" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" />
-
-      {/* 喷水（出水口） */}
-      <path d="M54 44 Q 58 38 60 34 Q 62 38 58 42" fill="none" stroke="#B3E5FC" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="60" cy="34" r="2" fill="#B3E5FC" />
-      <circle cx="58" cy="42" r="1.5" fill="#B3E5FC" />
-
-      {/* 鲸鱼身体 */}
-      <path
-        d="M30 62 Q 30 42 50 40 Q 70 42 70 62 Q 70 72 50 74 Q 30 72 30 62 Z"
-        fill="#63C1FE"
-        stroke="#2B2B45"
-        strokeWidth="4"
-        strokeLinejoin="round"
-      />
-
-      {/* 白肚子 */}
-      <ellipse cx="50" cy="64" rx="14" ry="9" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
-
-      {/* 尾巴 */}
-      <path d="M70 58 Q 88 52 84 68 Q 76 62 70 66" fill="none" stroke="#63C1FE" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M70 58 Q 88 52 84 68 Q 76 62 70 66" fill="none" stroke="#2B2B45" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* 胸鳍 */}
-      <ellipse cx="38" cy="60" rx="6" ry="3" fill="#4CAFDD" stroke="#2B2B45" strokeWidth="3" />
-
-      {/* 眼睛 */}
-      <circle cx="44" cy="50" r="3" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <circle cx="45" cy="49.5" r="1.5" fill="#2B2B45" />
-      <circle cx="45.5" cy="49" r="0.6" fill="#FFFFFF" />
-
-      {/* 小嘴 */}
-      <path d="M42 56 Q 46 58 50 56" fill="none" stroke="#2B2B45" strokeWidth="2.5" strokeLinecap="round" />
-
-      {/* 脸颊 */}
-      <ellipse cx="36" cy="54" rx="2.5" ry="2" fill="#FFB2C1" opacity="0.9" />
-      <ellipse cx="60" cy="54" rx="2.5" ry="2" fill="#FFB2C1" opacity="0.9" />
-    </svg>
-  );
-}
+export { Mascot } from '@/components/icons/mascot';
 
 
 

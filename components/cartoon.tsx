@@ -28,53 +28,26 @@ export function StarDoodle({ className }: { className?: string }) {
 export function Mascot({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      {/* 地面阴影 */}
-      <ellipse cx="50" cy="92" rx="26" ry="6" fill="#2B2B45" opacity="0.12" />
+      {/* 水面 */}
+      <ellipse cx="50" cy="76" rx="42" ry="14" fill="#8ED3F4" stroke="#2B2B45" strokeWidth="4" />
+      <path d="M20 76 Q 35 72 50 76 Q 65 72 80 76" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" />
 
-      {/* 竹子（嘴边叼着） */}
-      <path
-        d="M46 46 Q 60 44 68 42 Q 74 40 78 40 Q 86 40 90 46 Q 94 52 90 60 Q 84 68 78 70 Q 70 72 62 74"
-        fill="none"
-        stroke="#4CAF50"
-        strokeWidth="5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* 竹子节段 */}
-      <path d="M60 38 L60 50" stroke="#388E3C" strokeWidth="2" strokeLinecap="round" />
-      <path d="M70 38 L70 50" stroke="#388E3C" strokeWidth="2" strokeLinecap="round" />
-      {/* 竹子叶子 */}
-      <path d="M84 54 Q 92 58 88 66" fill="none" stroke="#4CAF50" strokeWidth="3" strokeLinecap="round" />
-      <path d="M88 58 Q 96 62 92 70" fill="none" stroke="#4CAF50" strokeWidth="3" strokeLinecap="round" />
+      {/* 翅膀 */}
+      <ellipse cx="55" cy="56" rx="7" ry="4" fill="#FFE066" stroke="#2B2B45" strokeWidth="3" />
 
-      {/* 大头 */}
-      <circle cx="50" cy="36" r="28" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
+      {/* 身体 */}
+      <ellipse cx="50" cy="60" rx="16" ry="11" fill="#FFE066" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
 
-      {/* 熊猫耳朵 */}
-      <circle cx="30" cy="16" r="8" fill="#2B2B45" />
-      <circle cx="70" cy="16" r="8" fill="#2B2B45" />
+      {/* 头 */}
+      <circle cx="42" cy="48" r="11" fill="#FFE066" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
 
-      {/* 黑眼圈 */}
-      <ellipse cx="36" cy="36" rx="10" ry="8" fill="#2B2B45" />
-      <ellipse cx="64" cy="36" rx="10" ry="8" fill="#2B2B45" />
+      {/* 鸭嘴 */}
+      <path d="M33 48 Q 26 48 28 52 Q 30 56 36 52 Q 40 48 33 48 Z" fill="#FFA726" stroke="#2B2B45" strokeWidth="3" />
 
-      {/* 眼睛（眼圈里的白眼珠） */}
-      <circle cx="36" cy="36" r="3" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <circle cx="64" cy="36" r="3" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <circle cx="36" cy="36" r="1.4" fill="#2B2B45" />
-      <circle cx="64" cy="36" r="1.4" fill="#2B2B45" />
-      <circle cx="37" cy="35" r="0.7" fill="#FFFFFF" />
-      <circle cx="65" cy="35" r="0.7" fill="#FFFFFF" />
-
-      {/* 小鼻子 */}
-      <path d="M47 44 L50 47 L53 44 Z" fill="#2B2B45" strokeLinejoin="round" />
-
-      {/* 叼着竹子的嘴 */}
-      <path d="M46 46 Q 50 50 54 46" fill="none" stroke="#2B2B45" strokeWidth="2.5" strokeLinecap="round" />
-
-      {/* 脸颊 */}
-      <ellipse cx="34" cy="44" rx="3" ry="2" fill="#FFB2C1" opacity="0.9" />
-      <ellipse cx="66" cy="44" rx="3" ry="2" fill="#FFB2C1" opacity="0.9" />
+      {/* 眼睛 */}
+      <circle cx="40" cy="46" r="2.5" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
+      <circle cx="40" cy="46" r="1.2" fill="#2B2B45" />
+      <circle cx="40.5" cy="45.5" r="0.5" fill="#FFFFFF" />
     </svg>
   );
 }

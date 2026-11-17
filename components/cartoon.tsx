@@ -31,81 +31,62 @@ export function Mascot({ className }: { className?: string }) {
       {/* 地面阴影 */}
       <ellipse cx="50" cy="92" rx="26" ry="6" fill="#2B2B45" opacity="0.12" />
 
-      {/* 尾巴（后方，制造立体感，不再是土豆状单一团块） */}
+      {/* 头发/刘海 */}
       <path
-        d="M82 78 Q 92 70 88 58 Q 84 50 78 60"
+        d="M30 24 Q 50 18 70 24 Q 80 32 76 44 Q 70 52 50 52 Q 30 52 24 44 Q 20 32 30 24 Z"
+        fill="#2B2B45"
+      />
+      <path
+        d="M38 26 Q 50 20 62 26"
         fill="none"
-        stroke="#FFB26B"
-        strokeWidth="5"
+        stroke="#2B2B45"
+        strokeWidth="3"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
 
-      {/* 身体 */}
+      {/* 身体（小） */}
       <ellipse
         cx="50"
-        cy="72"
-        rx="22"
-        ry="18"
+        cy="78"
+        rx="14"
+        ry="11"
         fill="#FFE066"
         stroke="#2B2B45"
         strokeWidth="4"
         strokeLinejoin="round"
       />
 
-      {/* 胸前小书本（呼应学习主题） */}
-      <rect x="40" y="62" width="20" height="12" rx="2" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
-      <path d="M40 68 L60 68" stroke="#2B2B45" strokeWidth="2" />
+      {/* 胸前小书本 */}
+      <rect x="43" y="72" width="14" height="8" rx="1.5" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
+      <path d="M43 76 L57 76" stroke="#2B2B45" strokeWidth="1.5" />
 
-      {/* 两只小手臂（抱书姿势） */}
-      <path d="M32 68 Q 26 72 28 78" fill="none" stroke="#FFE066" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M32 68 Q 26 72 28 78" fill="none" stroke="#2B2B45" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M68 68 Q 74 72 72 78" fill="none" stroke="#FFE066" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M68 68 Q 74 72 72 78" fill="none" stroke="#2B2B45" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      {/* 小手臂 */}
+      <path d="M36 72 Q 32 76 34 82" fill="none" stroke="#FFE066" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M36 72 Q 32 76 34 82" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M64 72 Q 68 76 66 82" fill="none" stroke="#FFE066" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M64 72 Q 68 76 66 82" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* 头部 */}
-      <circle cx="50" cy="44" r="20" fill="#FFE066" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
+      {/* 大头 */}
+      <circle cx="50" cy="38" r="24" fill="#FFE066" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
 
-      {/* 两只尖耳朵 */}
-      <path d="M36 32 Q 30 22 34 28" fill="none" stroke="#FFE066" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M36 32 Q 30 22 34 28" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M64 32 Q 70 22 66 28" fill="none" stroke="#FFE066" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M64 32 Q 70 22 66 28" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* 大眼睛 */}
+      <ellipse cx="40" cy="36" rx="6.5" ry="5" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
+      <ellipse cx="60" cy="36" rx="6.5" ry="5" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
+      <circle cx="40" cy="36" r="2.5" fill="#2B2B45" />
+      <circle cx="60" cy="36" r="2.5" fill="#2B2B45" />
+      <circle cx="41" cy="35" r="1.2" fill="#FFFFFF" />
+      <circle cx="61" cy="35" r="1.2" fill="#FFFFFF" />
 
-      {/* 头顶小星星 */}
-      <path
-        d="M50 24 L51.6 27.2 L55 27.6 L52.6 29.6 L53.4 33 L50 30.5 L46.6 33 L47.4 29.6 L45 27.6 L48.4 27.2 Z"
-        fill="#FFB200"
-        stroke="#2B2B45"
-        strokeWidth="1.5"
-      />
-
-      {/* 圆框眼镜 */}
-      <ellipse cx="42" cy="44" rx="7" ry="6" fill="none" stroke="#2B2B45" strokeWidth="3" />
-      <ellipse cx="58" cy="44" rx="7" ry="6" fill="none" stroke="#2B2B45" strokeWidth="3" />
-      <path d="M49 44 L51 44" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" />
-
-      {/* 眼睛（带高光，更有神） */}
-      <circle cx="42" cy="44" r="4" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <circle cx="42.5" cy="43.5" r="1.8" fill="#2B2B45" />
-      <circle cx="43" cy="43" r="0.6" fill="#FFFFFF" />
-      <circle cx="58" cy="44" r="4" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <circle cx="58.5" cy="43.5" r="1.8" fill="#2B2B45" />
-      <circle cx="59" cy="43" r="0.6" fill="#FFFFFF" />
-
-      {/* 鼻子 */}
-      <path d="M47 50 L50 53 L53 50 Z" fill="#FF8A65" stroke="#2B2B45" strokeWidth="2" strokeLinejoin="round" />
-
-      {/* 微笑嘴巴 */}
-      <path d="M45 56 Q 50 60 55 56" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" />
+      {/* 小嘴 */}
+      <path d="M47 42 Q 50 45 53 42" fill="none" stroke="#2B2B45" strokeWidth="2.5" strokeLinecap="round" />
 
       {/* 脸颊 */}
-      <ellipse cx="36" cy="50" rx="3" ry="2" fill="#FF9F9F" opacity="0.9" />
-      <ellipse cx="64" cy="50" rx="3" ry="2" fill="#FF9F9F" opacity="0.9" />
+      <ellipse cx="34" cy="40" rx="3" ry="2" fill="#FF9F9F" opacity="0.9" />
+      <ellipse cx="66" cy="40" rx="3" ry="2" fill="#FF9F9F" opacity="0.9" />
 
-      {/* 两只小脚 */}
-      <ellipse cx="40" cy="88" rx="6" ry="3.5" fill="#FFE066" stroke="#2B2B45" strokeWidth="3" />
-      <ellipse cx="60" cy="88" rx="6" ry="3.5" fill="#FFE066" stroke="#2B2B45" strokeWidth="3" />
+      {/* 小脚 */}
+      <ellipse cx="42" cy="90" rx="5" ry="3" fill="#FFE066" stroke="#2B2B45" strokeWidth="3" />
+      <ellipse cx="58" cy="90" rx="5" ry="3" fill="#FFE066" stroke="#2B2B45" strokeWidth="3" />
     </svg>
   );
 }

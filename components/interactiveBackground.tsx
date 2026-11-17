@@ -21,6 +21,31 @@ const MODES: { key: BgMode; label: string }[] = [
 
 const STORAGE_KEY = 'dicta…Mode';
 const EVENT_NAME = 'dictation-bg-mode';
+const MAX_CANVAS_HEIGHT = 10000;
+
+/** 背景画布统一使用文档尺寸，确保覆盖所有可滚动区域。 */
+function getDocumentCanvasSize() {
+  return {
+    w: window.innerWidth,
+    h: Math.min(document.documentElement.scrollHeight, MAX_CANVAS_HEIGHT),
+  };
+}
+
+/** 统一画布的 DPR 与 CSS / backing store 尺寸。 */
+function resizeCanvas(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number
+) {
+  // 页面很高时降 dpr，控制内存
+  const dpr = Math.min(window.devicePixelRatio || 1, h > 2600 ? 1 : 2);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
 
 /** 同页面多个 BackgroundDecor 实例 + 切换器之间同步模式 */
 function readMode(): BgMode {
@@ -103,19 +128,11 @@ function useCanvas(
 
     /** 与当前文档尺寸对齐；尺寸变了返回 true（画布已被清空） */
     const syncSize = (): boolean => {
-      const nextW = window.innerWidth;
-      // 背景要覆盖滚动区域：取整页高度（上限 10000px 防超大画布爆内存）
-      const nextH = Math.min(document.documentElement.scrollHeight, 10000);
-      if (nextW === w && nextH === h) return false;
-      w = nextW;
-      h = nextH;
-      // 页面很高时降 dpr，控制内存
-      const dpr = Math.min(window.devicePixelRatio || 1, h > 2600 ? 1 : 2);
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const next = getDocumentCanvasSize();
+      if (next.w === w && next.h === h) return false;
+      w = next.w;
+      h = next.h;
+      resizeCanvas(canvas, ctx, w, h);
       return true;
     };
     syncSize();
@@ -355,30 +372,40 @@ function EraserReveal() {
     () => {}
   );
 
-  // 底层：平铺涂鸦图案（覆盖整个文档，含滚动区域；resize 时重画）
+  // 底层：平铺涂鸦图案。文档高度变化时自动同步；尺寸不变就不重复绘制。
   useEffect(() => {
+    const canvas = baseRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let paintedW = 0;
+    let paintedH = 0;
     const paint = () => {
-      const canvas = baseRef.current;
-      if (!canvas) return;
-      const w = window.innerWidth;
-      const h = Math.min(document.documentElement.scrollHeight, 10000);
-      const dpr = Math.min(window.devicePixelRatio || 1, h > 2600 ? 1 : 2);
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const { w, h } = getDocumentCanvasSize();
+      if (w === paintedW && h === paintedH) return;
+      paintedW = w;
+      paintedH = h;
+      resizeCanvas(canvas, ctx, w, h);
       const pattern = ctx.createPattern(makeDoodleTile(), 'repeat');
       if (pattern) {
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, w, h);
       }
     };
+
     paint();
     window.addEventListener('resize', paint);
-    return () => window.removeEventListener('resize', paint);
+
+    // 内容异步加载或折叠区展开后，body 的内容盒高度会变化。
+    // 观察 body 能在布局稳定后触发一次重绘，不依赖滚动或窗口 resize。
+    const resizeObserver = new ResizeObserver(paint);
+    resizeObserver.observe(document.body);
+
+    return () => {
+      window.removeEventListener('resize', paint);
+      resizeObserver.disconnect();
+    };
   }, []);
 
   frameRef.current = (ctx, w, h, time, scrollY) => {
@@ -417,8 +444,8 @@ function EraserReveal() {
 
   return (
     <>
-      <canvas ref={baseRef} className="absolute inset-0" />
-      <canvas ref={veilRef} className="absolute inset-0" />
+      <canvas ref={baseRef} data-background-layer="base" className="absolute inset-0" />
+      <canvas ref={veilRef} data-background-layer="veil" className="absolute inset-0" />
     </>
   );
 }

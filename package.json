@@ -8,9 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "npm rebuild better-sqlite3 --foreground-scripts",
     "import:data": "node lib/import-sentences.mjs",
     "build:dict": "node lib/build-dict.mjs",
-    "build:words": "node lib/build-wordlist.mjs"
+    "build:words": "node lib/build-wordlist.mjs",
+    "test:background-eraser": "node scripts/test-background-eraser.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.0",
@@ -32,6 +34,7 @@
     "eslint": "^10.13.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "ws": "^8.23.0"
   }
 }

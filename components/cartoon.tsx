@@ -31,31 +31,21 @@ export function Mascot({ className }: { className?: string }) {
       {/* 地面阴影 */}
       <ellipse cx="50" cy="92" rx="26" ry="6" fill="#2B2B45" opacity="0.12" />
 
-      {/* 身体（小） */}
-      <ellipse
-        cx="50"
-        cy="80"
-        rx="14"
-        ry="10"
-        fill="#FFFFFF"
-        stroke="#2B2B45"
-        strokeWidth="4"
+      {/* 竹子（嘴边叼着） */}
+      <path
+        d="M46 46 Q 60 44 68 42 Q 74 40 78 40 Q 86 40 90 46 Q 94 52 90 60 Q 84 68 78 70 Q 70 72 62 74"
+        fill="none"
+        stroke="#4CAF50"
+        strokeWidth="5"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
-
-      {/* 胸前小书本 */}
-      <rect x="43" y="74" width="14" height="8" rx="1.5" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="2" />
-      <path d="M43 78 L57 78" stroke="#2B2B45" strokeWidth="1.5" />
-
-      {/* 小手臂 */}
-      <path d="M36 74 Q 32 78 34 84" fill="none" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M36 74 Q 32 78 34 84" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M64 74 Q 68 78 66 84" fill="none" stroke="#FFFFFF" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M64 74 Q 68 78 66 84" fill="none" stroke="#2B2B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* 小脚 */}
-      <ellipse cx="40" cy="90" rx="5" ry="3" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
-      <ellipse cx="60" cy="90" rx="5" ry="3" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="3" />
+      {/* 竹子节段 */}
+      <path d="M60 38 L60 50" stroke="#388E3C" strokeWidth="2" strokeLinecap="round" />
+      <path d="M70 38 L70 50" stroke="#388E3C" strokeWidth="2" strokeLinecap="round" />
+      {/* 竹子叶子 */}
+      <path d="M84 54 Q 92 58 88 66" fill="none" stroke="#4CAF50" strokeWidth="3" strokeLinecap="round" />
+      <path d="M88 58 Q 96 62 92 70" fill="none" stroke="#4CAF50" strokeWidth="3" strokeLinecap="round" />
 
       {/* 大头 */}
       <circle cx="50" cy="36" r="28" fill="#FFFFFF" stroke="#2B2B45" strokeWidth="4" strokeLinejoin="round" />
@@ -79,8 +69,8 @@ export function Mascot({ className }: { className?: string }) {
       {/* 小鼻子 */}
       <path d="M47 44 L50 47 L53 44 Z" fill="#2B2B45" strokeLinejoin="round" />
 
-      {/* 小嘴 */}
-      <path d="M47 48 Q 50 51 53 48" fill="none" stroke="#2B2B45" strokeWidth="2.5" strokeLinecap="round" />
+      {/* 叼着竹子的嘴 */}
+      <path d="M46 46 Q 50 50 54 46" fill="none" stroke="#2B2B45" strokeWidth="2.5" strokeLinecap="round" />
 
       {/* 脸颊 */}
       <ellipse cx="34" cy="44" rx="3" ry="2" fill="#FFB2C1" opacity="0.9" />

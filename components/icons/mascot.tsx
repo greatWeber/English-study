@@ -12,32 +12,20 @@ const DETAIL_1_D = "M 343.74 665.99 C 341.97 667.96 333.80 669.56 333.63 668.87 
 const DETAIL_2_D = "M 391.82 543.83 L 356.38 550.19 C 357.76 533.38 354.21 510.90 351.86 494.84 L 367.86 469.22 C 388.22 486.48 396.16 517.16 391.83 543.82 Z";
 
 // 尾巴只在「朝上 / 朝下」两帧之间做形状插值：
-// 路径始终是一条闭合曲线，连接处随坐标连续拉伸，不会像切割旋转那样裂开。
+// 权重按「离尾根接缝的距离」计算，而不是按到转轴的距离，
+// 这样描边内外两条边的权重一致，整条黑边不会被拉细。
 const TAIL_ANGLE = 10;
 const TAIL_PIVOT = { x: 350, y: 690 };
-const TAIL_POLY: Array<[number, number]> = [
-  [40, 500], [40, 560], [58, 620], [100, 660], [155, 685], [190, 650], [195, 600],
-  [215, 645], [250, 655], [300, 662], [335, 625], [358, 565], [360, 500], [330, 470],
-  [275, 465], [230, 482], [200, 505], [185, 520], [165, 495], [125, 470], [80, 470],
-];
-
-function inTail(x: number, y: number) {
-  let inside = false;
-  for (let i = 0, j = TAIL_POLY.length - 1; i < TAIL_POLY.length; j = i++) {
-    const [xi, yi] = TAIL_POLY[i];
-    const [xj, yj] = TAIL_POLY[j];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
+const SEAM_POINT = { x: 350, y: 700 };
+const SEAM_NORMAL = { x: 0.663, y: 0.747 };
 
 function tailWeight(x: number, y: number) {
-  if (!inTail(x, y)) return 0;
-  const d = Math.hypot(x - TAIL_PIVOT.x, y - TAIL_PIVOT.y);
-  const t = Math.min(1, Math.max(0, (d - 90) / 300));
-  return t * t * (3 - 2 * t);
+  const t = -(
+    (x - SEAM_POINT.x) * SEAM_NORMAL.x +
+    (y - SEAM_POINT.y) * SEAM_NORMAL.y
+  );
+  const u = Math.min(1, Math.max(0, (t - 10) / 230));
+  return u * u * (3 - 2 * u);
 }
 
 function deformTail(d: string, degrees: number) {
@@ -61,9 +49,9 @@ function deformTail(d: string, degrees: number) {
     const s = Math.sin(a);
     const dx = x - TAIL_PIVOT.x;
     const dy = y - TAIL_PIVOT.y;
-    out.push(parts[i / 2]);
+    out.push(parts[i]);
     out.push((TAIL_PIVOT.x + dx * c - dy * s).toFixed(2));
-    out.push(" ");
+    out.push(parts[i + 1]);
     out.push((TAIL_PIVOT.y + dx * s + dy * c).toFixed(2));
   }
   out.push(parts[parts.length - 1]);

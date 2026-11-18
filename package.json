@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "predev": "node scripts/ensure-better-sqlite3.mjs",
+    "prebuild": "node scripts/ensure-better-sqlite3.mjs",
     "postinstall": "npm rebuild better-sqlite3 --foreground-scripts",
     "import:data": "node lib/import-sentences.mjs",
     "build:dict": "node lib/build-dict.mjs",

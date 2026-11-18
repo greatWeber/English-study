@@ -174,7 +174,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream font-cartoon text-ink">
         <BackgroundDecor />
         <div className="relative z-10 flex flex-col items-center gap-5">
-          <Mascot className="h-24 w-24 animate-float" />
+          <Mascot className="h-24 w-24" />
           <div className="rounded-2xl border-[3px] border-ink bg-white px-6 py-3 text-sm font-extrabold shadow-[4px_4px_0_0_#2B2B45]">
             正在翻开练习本…
           </div>
@@ -283,7 +283,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
             </div>
 
             <section className="ink-card relative overflow-hidden p-6 text-center md:p-10">
-              <Mascot className="mx-auto h-28 w-28 animate-float" />
+              <Mascot className="mx-auto h-28 w-28" />
               <h2 className="mt-2 text-3xl font-extrabold md:text-4xl">
                 本轮通关啦 🎉
               </h2>
@@ -428,7 +428,7 @@ export function PracticePageContent({ searchParams }: { searchParams: URLSearchP
 
             {/* 小老师提示 */}
             <div className="mb-4 flex items-end gap-2.5">
-              <Mascot className="mb-1 h-16 w-16 shrink-0 animate-float md:h-20 md:w-20" />
+              <Mascot className="mb-1 h-16 w-16 shrink-0 md:h-20 md:w-20" />
               <div className="relative flex-1 rounded-2xl rounded-bl-md border-[3px] border-ink bg-white px-4 py-2.5 shadow-[4px_4px_0_0_#2B2B45]">
                 <p className="text-sm font-extrabold leading-snug md:text-[15px]">{tip}</p>
                 <span className="absolute -left-1 bottom-2 h-3 w-3 rotate-45 border-b-[3px] border-l-[3px] border-ink bg-white" />

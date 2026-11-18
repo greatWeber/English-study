@@ -26,7 +26,7 @@ export default function PracticePage() {
         <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream font-cartoon text-ink">
           <BackgroundDecor />
           <div className="relative z-10 flex flex-col items-center gap-5">
-            <Mascot className="h-24 w-24 animate-float" />
+            <Mascot className="h-24 w-24" />
             <div className="rounded-2xl border-[3px] border-ink bg-white px-6 py-3 text-sm font-extrabold shadow-[4px_4px_0_0_#2B2B45]">
               正在翻开练习本…
             </div>

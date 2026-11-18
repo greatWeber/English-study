@@ -63,7 +63,7 @@ function DashboardPanel({
     return (
       <section className="ink-card mt-5 p-5 md:p-6">
         <div className="flex items-center gap-3">
-          <Mascot className="h-12 w-12 animate-float" />
+          <Mascot className="h-12 w-12" />
           <div>
             <p className="text-sm font-extrabold">正在整理你的学习记录…</p>
             <p className="mt-0.5 text-xs font-bold text-ink/50">马上就好</p>
@@ -226,7 +226,7 @@ export default function HomePage() {
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream font-cartoon text-ink">
         <BackgroundDecor />
         <div className="relative z-10 flex flex-col items-center gap-5">
-          <Mascot className="h-24 w-24 animate-float" />
+          <Mascot className="h-24 w-24" />
           <div className="rounded-2xl border-[3px] border-ink bg-white px-6 py-3 text-sm font-extrabold shadow-[4px_4px_0_0_#2B2B45]">
             正在准备练习本…
           </div>
@@ -299,7 +299,7 @@ export default function HomePage() {
             选一条适合你的学习路线：校园成长打基础，考试冲刺对准目标词表。
           </p>
         </motion.div>
-        <Mascot className="mx-auto mt-4 h-24 w-24 animate-float md:h-28 md:w-28" />
+        <Mascot className="mx-auto mt-4 h-24 w-24 md:h-28 md:w-28" />
       </section>
 
       {/* 主体 */}
@@ -594,7 +594,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="relative z-10">
-                  <Mascot className="mx-auto h-20 w-20 animate-float" />
+                  <Mascot className="mx-auto h-20 w-20" />
                   <p className="mt-2 text-sm font-bold text-ink/65">
                     准备好了吗？点击开始你的默写之旅 ✏️
                   </p>

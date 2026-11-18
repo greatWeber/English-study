@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 
@@ -8,24 +8,119 @@ const BODY_OUTLINE_D = "M 367.85 469.23 L 351.85 494.85 C 313.14 478.86 269.02 4
 
 const BODY_FILL_D = "M 873.02 449.58 C 1043.17 486.10 1129.66 619.26 1134.81 791.28 C 1109.59 780.25 1088.30 788.27 1076.73 807.77 C 1065.97 825.90 1065.27 857.97 1086.88 867.47 C 1104.63 875.27 1129.75 867.16 1145.87 858.89 C 1142.88 895.81 1133.74 931.75 1115.19 963.65 C 1114.70 958.56 1107.09 946.29 1102.33 942.50 C 992.30 854.96 846.36 886.19 729.17 959.20 L 613.07 1031.53 L 603.97 1058.94 L 569.58 1060.64 C 509.67 1154.43 339.85 1182.77 310.61 1122.94 C 291.29 1083.41 346.04 1022.33 386.67 980.55 C 411.97 954.53 461.72 952.40 453.57 928.53 C 445.91 906.11 396.75 927.56 360.89 960.91 L 332.39 987.42 C 272.11 972.22 223.02 933.63 185.41 880.43 L 177.25 883.41 C 139.44 771.12 174.35 684.73 155.58 679.51 L 137.72 674.55 C 71.09 656.03 43.35 579.45 58.69 513.66 C 63.48 493.13 80.16 477.72 100.70 478.12 C 186.05 479.78 193.36 572.02 238.93 524.16 C 269.03 492.55 313.14 478.85 351.85 494.84 C 354.20 510.89 357.75 533.38 356.37 550.19 C 353.67 583.05 331.44 609.90 313.06 635.08 C 295.94 658.53 269.90 660.04 247.51 652.09 C 239.47 649.24 219.76 652.18 212.97 656.78 C 180.08 679.08 220.22 746.88 254.04 757.67 C 300.60 772.53 340.27 735.48 362.67 702.20 L 437.74 612.76 C 490.73 549.62 554.26 499.13 629.99 470.85 L 653.38 462.12 C 655.96 478.55 658.14 496.31 666.04 505.27 C 675.18 515.64 700.49 519.26 711.92 520.08 C 749.23 522.77 767.35 508.10 798.34 493.85 L 847.68 471.16 C 851.99 469.18 853.07 452.46 857.84 451.84 L 873.02 449.58 Z M 1069.11 773.21 C 1068.34 753.75 1052.65 731.52 1037.12 736.29 C 1012.10 743.96 1010.23 770.53 1017.30 791.46 C 1022.18 805.92 1041.14 814.77 1054.86 809.43 C 1063.88 805.92 1069.74 789.08 1069.12 773.21 Z M 813.50 803.14 C 812.34 786.36 796.29 771.73 783.40 772.78 C 772.80 773.64 758.96 786.01 756.01 797.46 C 750.33 819.45 754.36 844.33 774.88 853.90 C 782.92 857.65 804.42 848.58 808.23 840.95 C 812.10 833.20 814.55 818.29 813.51 803.13 Z M 885.51 847.49 C 914.36 868.34 952.72 861.30 973.56 832.08 C 976.82 827.51 978.34 814.69 973.67 811.75 C 954.80 799.86 940.67 837.93 927.81 834.21 L 898.22 825.67 C 893.84 824.41 883.98 825.42 879.81 826.87 C 875.64 828.32 881.66 844.71 885.51 847.49 Z M 761.64 889.72 C 761.64 859.69 737.30 835.34 707.27 835.34 C 677.24 835.34 652.90 859.69 652.90 889.72 C 652.90 919.75 677.24 944.10 707.27 944.10 C 737.30 944.10 761.64 919.75 761.64 889.72 Z";
 
-const TAIL_REGION = "M 630 471 C 554 499 491 550 438 613 L 363 702 C 330 708 295 710 266 693 C 250 685 243 665 248 652 L 200 690 L 120 700 L 40 660 L 0 560 L 10 460 L 80 400 L 180 400 L 260 430 L 330 430 L 400 440 L 470 440 L 540 440 L 610 440 Z";
+const DETAIL_1_D = "M 343.74 665.99 C 341.97 667.96 333.80 669.56 333.63 668.87 L 313.06 635.08 C 331.44 609.91 353.67 583.05 356.37 550.19 L 391.81 543.83 C 385.87 580.36 373.03 620.42 346.27 647.75 L 333.46 660.83 C 331.98 662.34 340.22 665.23 343.73 665.99 Z";
+const DETAIL_2_D = "M 391.82 543.83 L 356.38 550.19 C 357.76 533.38 354.21 510.90 351.86 494.84 L 367.86 469.22 C 388.22 486.48 396.16 517.16 391.83 543.82 Z";
+
+// 尾巴只在「朝上 / 朝下」两帧之间做形状插值：
+// 路径始终是一条闭合曲线，连接处随坐标连续拉伸，不会像切割旋转那样裂开。
+const TAIL_ANGLE = 10;
+const TAIL_PIVOT = { x: 350, y: 690 };
+const TAIL_POLY: Array<[number, number]> = [
+  [40, 500], [40, 560], [58, 620], [100, 660], [155, 685], [190, 650], [195, 600],
+  [215, 645], [250, 655], [300, 662], [335, 625], [358, 565], [360, 500], [330, 470],
+  [275, 465], [230, 482], [200, 505], [185, 520], [165, 495], [125, 470], [80, 470],
+];
+
+function inTail(x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = TAIL_POLY.length - 1; i < TAIL_POLY.length; j = i++) {
+    const [xi, yi] = TAIL_POLY[i];
+    const [xj, yj] = TAIL_POLY[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function tailWeight(x: number, y: number) {
+  if (!inTail(x, y)) return 0;
+  const d = Math.hypot(x - TAIL_PIVOT.x, y - TAIL_PIVOT.y);
+  const t = Math.min(1, Math.max(0, (d - 90) / 300));
+  return t * t * (3 - 2 * t);
+}
+
+function deformTail(d: string, degrees: number) {
+  const parts: string[] = [];
+  const numbers: string[] = [];
+  let last = 0;
+  for (const m of d.matchAll(/-?\d+(?:\.\d+)?/g)) {
+    parts.push(d.slice(last, m.index));
+    numbers.push(m[0]);
+    last = m.index! + m[0].length;
+  }
+  parts.push(d.slice(last));
+
+  const out: string[] = [];
+  for (let i = 0; i < numbers.length; i += 2) {
+    const x = Number(numbers[i]);
+    const y = Number(numbers[i + 1]);
+    const w = tailWeight(x, y);
+    const a = (degrees * Math.PI * w) / 180;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const dx = x - TAIL_PIVOT.x;
+    const dy = y - TAIL_PIVOT.y;
+    out.push(parts[i / 2]);
+    out.push((TAIL_PIVOT.x + dx * c - dy * s).toFixed(2));
+    out.push(" ");
+    out.push((TAIL_PIVOT.y + dx * s + dy * c).toFixed(2));
+  }
+  out.push(parts[parts.length - 1]);
+  return out.join("");
+}
+
+const OUTLINE_UP = deformTail(BODY_OUTLINE_D, -TAIL_ANGLE);
+const OUTLINE_DOWN = deformTail(BODY_OUTLINE_D, TAIL_ANGLE);
+const FILL_UP = deformTail(BODY_FILL_D, -TAIL_ANGLE);
+const FILL_DOWN = deformTail(BODY_FILL_D, TAIL_ANGLE);
+const DETAIL_1_UP = deformTail(DETAIL_1_D, -TAIL_ANGLE);
+const DETAIL_1_DOWN = deformTail(DETAIL_1_D, TAIL_ANGLE);
+const DETAIL_2_UP = deformTail(DETAIL_2_D, -TAIL_ANGLE);
+const DETAIL_2_DOWN = deformTail(DETAIL_2_D, TAIL_ANGLE);
+const numsOf = (d: string) => (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
 
 export function Mascot({ className }: { className?: string }) {
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
-  const tailClipId = `mascot-tail-clip-${uid}`;
-  const tailMaskId = `mascot-tail-mask-${uid}`;
+  const outlineRef = useRef<SVGPathElement>(null);
+  const fillRef = useRef<SVGPathElement>(null);
+  const detail1Ref = useRef<SVGPathElement>(null);
+  const detail2Ref = useRef<SVGPathElement>(null);
+
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const tracks = [
+      { ref: outlineRef, a: OUTLINE_UP, b: OUTLINE_DOWN, aNums: numsOf(OUTLINE_UP), bNums: numsOf(OUTLINE_DOWN) },
+      { ref: fillRef, a: FILL_UP, b: FILL_DOWN, aNums: numsOf(FILL_UP), bNums: numsOf(FILL_DOWN) },
+      { ref: detail1Ref, a: DETAIL_1_UP, b: DETAIL_1_DOWN, aNums: numsOf(DETAIL_1_UP), bNums: numsOf(DETAIL_1_DOWN) },
+      { ref: detail2Ref, a: DETAIL_2_UP, b: DETAIL_2_DOWN, aNums: numsOf(DETAIL_2_UP), bNums: numsOf(DETAIL_2_DOWN) },
+    ];
+
+    let raf = 0;
+    const start = performance.now();
+    const duration = 1600;
+
+    const tick = (now: number) => {
+      const t = ((now - start) % duration) / duration;
+      const p = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+      for (const track of tracks) {
+        let i = 0;
+        const d = track.a.replace(/-?\d+(?:\.\d+)?/g, () => {
+          const v = track.aNums[i] + (track.bNums[i] - track.aNums[i]) * p;
+          i += 1;
+          return v.toFixed(2);
+        });
+        track.ref.current?.setAttribute("d", d);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   return (
     <svg viewBox="0 0 1200 1200" className={className} aria-hidden style={{ overflow: 'visible' }}>
-      <defs>
-        <clipPath id={tailClipId} clipPathUnits="userSpaceOnUse">
-          <path d={TAIL_REGION} />
-        </clipPath>
-        <mask id={tailMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width="1200" height="1200">
-          <rect x="0" y="0" width="1200" height="1200" fill="#fff" />
-          <path d={TAIL_REGION} fill="#000" />
-        </mask>
-      </defs>
       {/* 头顶水花：整体做喷发 / 呼吸循环 */}
       <motion.g
         animate={{ y: [0, -22, 0], scale: [0.95, 1.06, 0.95], opacity: [0.7, 1, 0.7] }}
@@ -39,24 +134,15 @@ export function Mascot({ className }: { className?: string }) {
         <path d="M 905.90 271.63 L 828.83 264.60 C 793.82 261.41 768.39 275.15 740.31 303.84 C 735.58 265.85 749.10 234.96 770.74 205.24 C 809.80 151.60 885.82 133.36 938.66 177.06 C 954.16 189.88 960.29 216.96 955.99 234.34 C 952.21 249.63 928.95 273.73 905.88 271.63 Z" fill="#8cd5fe" fillRule="nonzero" />
         <path d="M 646.15 212.17 C 598.17 143.83 527.46 181.24 513.62 142.88 C 508.55 128.83 513.12 103.32 524.63 92.66 C 555.34 64.22 603.27 72.62 629.46 105.10 C 652.51 133.68 655.12 172.93 646.14 212.16 Z" fill="#92d9fe" fillRule="nonzero" />
       </motion.g>
-      {/* 身体保持不动，只有尾巴摆动 */}
+      {/* 身体保持不动，只有尾巴在上下两帧之间连续变形 */}
       <g>
-            <path d={BODY_OUTLINE_D} fill="#264f7a" fillRule="nonzero" mask={`url(#${tailMaskId})`} />
-      <path d="M 1102.15 1046.21 L 1091.64 1057.37 L 1058.41 1038.91 C 1080.93 1018.12 1099.88 989.98 1115.19 963.65 C 1133.74 931.75 1142.88 895.81 1145.87 858.89 C 1147.63 837.18 1137.08 811.36 1134.81 791.28 C 1129.66 619.26 1043.17 486.09 873.02 449.58 C 833.15 441.02 789.44 436.01 748.77 442.26 L 742.85 408.61 C 826.21 400.18 914.03 411.15 989.81 454.65 C 1105.52 521.07 1166.85 646.61 1167.55 779.02 C 1186.13 826.81 1186.71 873.50 1171.48 921.77 C 1157.41 969.32 1134.54 1011.81 1102.16 1046.21 Z" fill="#264f7a" fillRule="nonzero" />
-      <path d={BODY_FILL_D} fill="#83bcfe" fillRule="nonzero" />
-      {/* 尾巴：只让尾巴围绕与身体连接处摆动 */}
-      <motion.g
-        clipPath={`url(#${tailClipId})`}
-        animate={{ rotate: [0, 5, 0] }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        style={{ transformOrigin: "350px 690px" }}
-      >
-        <path d={BODY_OUTLINE_D} fill="#264f7a" fillRule="nonzero" />
-        <path d={BODY_FILL_D} fill="#83bcfe" fillRule="nonzero" />
-      </motion.g>
-      <path d="M 609.33 443.12 L 620.85 468.69 L 629.99 470.86 C 554.26 499.14 490.74 549.63 437.74 612.77 L 362.67 702.21 C 330.49 707.78 295.47 710.31 265.55 693.44 C 250.41 684.91 242.59 665.12 247.51 652.10 C 269.89 660.04 295.94 658.53 313.06 635.09 L 333.63 668.88 C 333.79 669.57 341.97 667.97 343.74 666.00 L 381.57 623.86 C 438.43 560.53 494.76 500.46 569.74 460.18 L 609.34 443.13 Z" fill="#264f7a" fillRule="nonzero" />
-      <path d="M 343.74 665.99 C 341.97 667.96 333.80 669.56 333.63 668.87 L 313.06 635.08 C 331.44 609.91 353.67 583.05 356.37 550.19 L 391.81 543.83 C 385.87 580.36 373.03 620.42 346.27 647.75 L 333.46 660.83 C 331.98 662.34 340.22 665.23 343.73 665.99 Z" fill="#264f7a" fillRule="nonzero" />
-      <path d="M 391.82 543.83 L 356.38 550.19 C 357.76 533.38 354.21 510.90 351.86 494.84 L 367.86 469.22 C 388.22 486.48 396.16 517.16 391.83 543.82 Z" fill="#264f7a" fillRule="nonzero" />
+        <path ref={outlineRef} d={OUTLINE_UP} fill="#264f7a" fillRule="nonzero" />
+        <path d="M 1102.15 1046.21 L 1091.64 1057.37 L 1058.41 1038.91 C 1080.93 1018.12 1099.88 989.98 1115.19 963.65 C 1133.74 931.75 1142.88 895.81 1145.87 858.89 C 1147.63 837.18 1137.08 811.36 1134.81 791.28 C 1129.66 619.26 1043.17 486.09 873.02 449.58 C 833.15 441.02 789.44 436.01 748.77 442.26 L 742.85 408.61 C 826.21 400.18 914.03 411.15 989.81 454.65 C 1105.52 521.07 1166.85 646.61 1167.55 779.02 C 1186.13 826.81 1186.71 873.50 1171.48 921.77 C 1157.41 969.32 1134.54 1011.81 1102.16 1046.21 Z" fill="#264f7a" fillRule="nonzero" />
+        <path ref={fillRef} d={FILL_UP} fill="#83bcfe" fillRule="nonzero" />
+        {/* 深色分隔带盖住尾巴与身体的接缝 */}
+        <path d="M 609.33 443.12 L 620.85 468.69 L 629.99 470.86 C 554.26 499.14 490.74 549.63 437.74 612.77 L 362.67 702.21 C 330.49 707.78 295.47 710.31 265.55 693.44 C 250.41 684.91 242.59 665.12 247.51 652.10 C 269.89 660.04 295.94 658.53 313.06 635.09 L 333.63 668.88 C 333.79 669.57 341.97 667.97 343.74 666.00 L 381.57 623.86 C 438.43 560.53 494.76 500.46 569.74 460.18 L 609.34 443.13 Z" fill="#264f7a" fillRule="nonzero" />
+        <path ref={detail1Ref} d={DETAIL_1_UP} fill="#264f7a" fillRule="nonzero" />
+        <path ref={detail2Ref} d={DETAIL_2_UP} fill="#264f7a" fillRule="nonzero" />
       <path d="M 656.59 425.06 L 681.23 430.86 C 687.15 432.46 687.97 446.72 688.47 451.52 L 653.38 462.12 L 629.99 470.85 L 620.85 468.68 L 609.33 443.11 L 656.59 425.05 Z" fill="#264f7a" fillRule="nonzero" />
       <path d="M 742.84 408.61 L 748.76 442.26 L 688.46 451.52 C 687.96 446.72 687.14 432.46 681.22 430.86 L 656.58 425.06 L 742.83 408.61 Z" fill="#264f7a" fillRule="nonzero" />
             <path d="M 1115.19 963.66 C 1099.88 989.98 1080.93 1018.13 1058.41 1038.92 C 932.76 1154.94 697.08 1184.88 522.21 1150.49 C 559.29 1124.11 591.27 1097.22 603.97 1058.94 L 613.07 1031.53 L 729.17 959.20 C 846.36 886.19 992.30 854.97 1102.33 942.50 C 1107.09 946.28 1114.70 958.56 1115.19 963.65 Z" fill="#d0e4fe" fillRule="nonzero" />

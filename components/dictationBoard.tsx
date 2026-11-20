@@ -8,6 +8,7 @@ import {
   countDictationWords,
   splitDictation,
 } from '@/lib/utils';
+import { ThemedCaret } from '@/components/themedCaret';
 
 type DictationBoardProps = {
   text: string;
@@ -109,6 +110,8 @@ export function DictationBoard({
             spellCheck={false}
             className="w-full resize-none overflow-y-auto rounded-[24px] border-[3px] border-ink bg-white px-5 py-4 font-sans text-lg font-bold leading-relaxed text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all placeholder:text-ink/30 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-xl"
           />
+          {/* 自绘卡通光标：藏掉原生 caret，换成圆角粗竖条（多行也能跟到行首） */}
+          <ThemedCaret inputRef={textareaRef} active value={typed} shape="bar" />
         </label>
 
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] font-bold text-ink/35">

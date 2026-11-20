@@ -65,6 +65,38 @@
   .confetti-piece {
     border-radius: 2px;
   }
+
+  /* —— 自绘卡通光标（components/themedCaret.tsx 藏掉原生 caret 后的替身） —— */
+  .themed-caret {
+    --themed-caret-color: #ff8a00;
+    background: var(--themed-caret-color);
+    animation: themed-caret-blink 1.05s linear infinite;
+    will-change: transform;
+  }
+  /* 圆角粗竖条：描边留白，压在浅色高亮上也看得清 */
+  .themed-caret--bar {
+    border-radius: 999px;
+    box-shadow:
+      0 0 0 1.5px rgb(255 255 255 / 0.9),
+      0 1px 2px rgb(43 43 69 / 0.18);
+  }
+  /* 半透明方块：盖住待输入的字母，像荧光笔涂一格 */
+  .themed-caret--block {
+    border-radius: 4px;
+    background: rgb(255 138 0 / 0.26);
+    box-shadow: inset 0 0 0 1.5px var(--themed-caret-color);
+  }
+}
+
+@keyframes themed-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* 尊重系统「减少动态效果」设置：关掉装饰动画，保留判分颜色反馈 */
@@ -84,5 +116,9 @@
   .ink-btn,
   .ink-card {
     transition: none !important;
+  }
+  /* 减少动态效果时，自绘光标保持常亮不闪 */
+  .themed-caret {
+    animation: none !important;
   }
 }

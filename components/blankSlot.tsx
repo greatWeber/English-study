@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Phase, CheckDetail } from "@/lib/type";
 import { motion } from "framer-motion";
 import { Squiggle } from "@/components/cartoon";
+import { ThemedCaret } from "@/components/themedCaret";
 
 type BlankSlotProps = {
   answer: string;
@@ -50,6 +51,7 @@ export function BlankSlot({
 
   // 打字按键反馈：新字母落下 → 空格子轻轻弹一下；删除 → 缩一下
   const slotRef = useRef<HTMLSpanElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const prevTypedRef = useRef(typed);
   useEffect(() => {
     const prev = prevTypedRef.current;
@@ -114,7 +116,10 @@ export function BlankSlot({
         />
         {!isStatic ? (
           <input
-            ref={(el) => registerInput(order, el)}
+            ref={(el) => {
+              inputRef.current = el;
+              registerInput(order, el);
+            }}
             value={typed}
             onChange={(event) => onChange(order, event.target.value)}
             onFocus={() => onFocus(order)}
@@ -165,6 +170,9 @@ export function BlankSlot({
             ) : null}
           </span>
         )}
+
+        {/* 自绘卡通光标：藏掉原生 caret，换成圆角粗竖条 */}
+        <ThemedCaret inputRef={inputRef} active={!isStatic} value={typed} shape="bar" />
 
         <svg
           viewBox="0 0 100 12"

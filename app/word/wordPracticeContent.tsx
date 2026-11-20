@@ -19,6 +19,7 @@ import {
 import { BackgroundDecor } from '@/components/interactiveBackground';
 import { KeyCap, Mascot, WinStamp, CountUp, Squiggle, StarFlight } from '@/components/cartoon';
 import { WordAudio } from '@/components/wordAudio';
+import { ThemedCaret } from '@/components/themedCaret';
 import { useWordPractice } from '@/hooks/useWordPractice';
 import { isSoundEnabled, playCorrectChime, setSoundEnabled } from '@/lib/sfx';
 
@@ -387,6 +388,8 @@ export function WordPracticeContent({ searchParams }: { searchParams: URLSearchP
                         placeholder="在这里写出单词…"
                         className="w-full rounded-2xl border-[3px] border-ink bg-white px-5 py-3.5 text-center font-mono text-2xl font-extrabold tracking-wide text-ink shadow-[4px_4px_0_0_#2B2B45] outline-none transition-all caret-[#FF8A00] placeholder:text-base placeholder:font-bold placeholder:text-ink/25 focus:border-cartoon-orange focus:shadow-[4px_4px_0_0_#FFB26B] md:text-3xl"
                       />
+                      {/* 自绘卡通光标：藏掉原生 caret，换成圆角粗竖条 */}
+                      <ThemedCaret inputRef={inputRef} active value={typed} shape="bar" />
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2">
